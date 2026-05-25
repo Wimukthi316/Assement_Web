@@ -1,9 +1,13 @@
-import { Sun, Moon, Download, Upload, FileJson, FileText, BookOpen } from 'lucide-react'
+import { Download, Upload, FileJson, FileText, BookOpen, LogOut, User } from 'lucide-react'
 import { exportJSON, exportCSV } from '../utils/helpers.js'
 import { useState, useRef } from 'react'
+import { useAuth } from '../context/AuthContext.jsx'
+import ThemeToggle from './ThemeToggle.jsx'
 
-export default function Header({ darkMode, toggleDarkMode, assignments, onImport, disabled = false }) {
+export default function Header({ assignments, onImport, disabled = false }) {
+  const { user, logout } = useAuth()
   const [showExportMenu, setShowExportMenu] = useState(false)
+  const [loggingOut, setLoggingOut] = useState(false)
   const fileInputRef = useRef(null)
 
   function handleImport(e) {
@@ -26,10 +30,18 @@ export default function Header({ darkMode, toggleDarkMode, assignments, onImport
     e.target.value = ''
   }
 
+  async function handleLogout() {
+    setLoggingOut(true)
+    try {
+      await logout()
+    } finally {
+      setLoggingOut(false)
+    }
+  }
+
   return (
     <header className="sticky top-0 z-40 border-b border-slate-200 dark:border-slate-700 bg-white/90 dark:bg-slate-900/90 backdrop-blur-sm">
       <div className="max-w-screen-2xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between gap-4">
-        {/* Logo */}
         <div className="flex items-center gap-3 min-w-0">
           <div className="w-9 h-9 rounded-xl bg-indigo-600 dark:bg-indigo-500 flex items-center justify-center shrink-0 shadow-lg shadow-indigo-500/30">
             <BookOpen size={18} className="text-white" />
@@ -44,9 +56,7 @@ export default function Header({ darkMode, toggleDarkMode, assignments, onImport
           </div>
         </div>
 
-        {/* Actions */}
         <div className="flex items-center gap-2">
-          {/* Import */}
           <input
             ref={fileInputRef}
             type="file"
@@ -64,7 +74,6 @@ export default function Header({ darkMode, toggleDarkMode, assignments, onImport
             <span className="hidden sm:inline">Import</span>
           </button>
 
-          {/* Export dropdown */}
           <div className="relative">
             <button
               onClick={() => setShowExportMenu((v) => !v)}
@@ -99,14 +108,24 @@ export default function Header({ darkMode, toggleDarkMode, assignments, onImport
             )}
           </div>
 
-          {/* Dark mode toggle */}
+          <div className="hidden md:flex items-center gap-2 px-3 py-1.5 rounded-lg bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 max-w-[200px]">
+            <User size={14} className="text-slate-400 shrink-0" />
+            <span className="text-xs text-slate-600 dark:text-slate-300 truncate">
+              {user?.displayName || user?.email || 'Signed in'}
+            </span>
+          </div>
+
           <button
-            onClick={toggleDarkMode}
-            className="w-9 h-9 rounded-lg flex items-center justify-center text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 border border-slate-200 dark:border-slate-700 transition-colors"
-            title={darkMode ? 'Switch to light mode' : 'Switch to dark mode'}
+            onClick={handleLogout}
+            disabled={loggingOut}
+            className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-lg text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-900/20 border border-rose-200 dark:border-rose-800 disabled:opacity-60 transition-colors"
+            title="Sign out"
           >
-            {darkMode ? <Sun size={17} /> : <Moon size={17} />}
+            <LogOut size={15} />
+            <span className="hidden sm:inline">{loggingOut ? 'Signing out...' : 'Logout'}</span>
           </button>
+
+          <ThemeToggle />
         </div>
       </div>
     </header>

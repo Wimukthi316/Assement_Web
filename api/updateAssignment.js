@@ -1,6 +1,7 @@
+import { withAuth } from './lib/authMiddleware.js'
 import { getAssignmentsCollection, sanitizeAssignment } from './lib/mongodb.js'
 
-export default async function handler(req, res) {
+async function handler(req, res) {
   if (req.method !== 'PUT' && req.method !== 'PATCH') {
     return res.status(405).json({ error: 'Method not allowed' })
   }
@@ -12,7 +13,7 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: 'Assignment ID is required' })
     }
 
-    const { id, _id, ...updates } = body
+    const { id, _id, userId: _ignoredUserId, ...updates } = body
     updates.updatedAt = new Date().toISOString()
 
     if (updates.clientPrice !== undefined) {
@@ -33,7 +34,7 @@ export default async function handler(req, res) {
 
     const collection = await getAssignmentsCollection()
     const result = await collection.findOneAndUpdate(
-      { id },
+      { id, userId: req.user.uid },
       { $set: updates },
       { returnDocument: 'after' }
     )
@@ -48,3 +49,5 @@ export default async function handler(req, res) {
     return res.status(500).json({ error: 'Failed to update assignment' })
   }
 }
+
+export default withAuth(handler)

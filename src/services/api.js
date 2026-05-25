@@ -1,12 +1,26 @@
 const API_BASE = '/api'
 
+let tokenGetter = async () => null
+
+export function setTokenGetter(getter) {
+  tokenGetter = getter
+}
+
 async function request(path, options = {}) {
+  const token = await tokenGetter()
+
+  const headers = {
+    'Content-Type': 'application/json',
+    ...options.headers,
+  }
+
+  if (token) {
+    headers.Authorization = `Bearer ${token}`
+  }
+
   const response = await fetch(`${API_BASE}${path}`, {
-    headers: {
-      'Content-Type': 'application/json',
-      ...options.headers,
-    },
     ...options,
+    headers,
   })
 
   let data = null
@@ -20,6 +34,9 @@ async function request(path, options = {}) {
   }
 
   if (!response.ok) {
+    if (response.status === 401) {
+      throw new Error(data?.error || 'Unauthorized — please sign in again')
+    }
     throw new Error(data?.error || `Request failed (${response.status})`)
   }
 
@@ -55,4 +72,8 @@ export async function importAssignments(assignments) {
     method: 'POST',
     body: JSON.stringify({ assignments }),
   })
+}
+
+export async function migrateLegacyData() {
+  return request('/migrateLegacyData', { method: 'POST' })
 }

@@ -1,7 +1,8 @@
 import { randomUUID } from 'crypto'
+import { withAuth } from './lib/authMiddleware.js'
 import { getAssignmentsCollection, sanitizeAssignment } from './lib/mongodb.js'
 
-export default async function handler(req, res) {
+async function handler(req, res) {
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' })
   }
@@ -16,6 +17,7 @@ export default async function handler(req, res) {
     const now = new Date().toISOString()
     const records = assignments.map((item) => ({
       id: item.id || randomUUID(),
+      userId: req.user.uid,
       dateReceived: item.dateReceived || '',
       clientName: item.clientName || '',
       moduleCode: item.moduleCode || '',
@@ -33,7 +35,7 @@ export default async function handler(req, res) {
     }))
 
     const collection = await getAssignmentsCollection()
-    await collection.deleteMany({})
+    await collection.deleteMany({ userId: req.user.uid })
     if (records.length > 0) {
       await collection.insertMany(records)
     }
@@ -44,3 +46,5 @@ export default async function handler(req, res) {
     return res.status(500).json({ error: 'Failed to import assignments' })
   }
 }
+
+export default withAuth(handler)

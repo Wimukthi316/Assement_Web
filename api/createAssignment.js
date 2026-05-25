@@ -1,7 +1,8 @@
 import { randomUUID } from 'crypto'
+import { withAuth } from './lib/authMiddleware.js'
 import { getAssignmentsCollection, sanitizeAssignment } from './lib/mongodb.js'
 
-export default async function handler(req, res) {
+async function handler(req, res) {
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' })
   }
@@ -22,6 +23,7 @@ export default async function handler(req, res) {
     const now = new Date().toISOString()
     const record = {
       id: body.id || randomUUID(),
+      userId: req.user.uid,
       dateReceived: body.dateReceived || '',
       clientName: body.clientName.trim(),
       moduleCode: body.moduleCode.trim(),
@@ -47,3 +49,5 @@ export default async function handler(req, res) {
     return res.status(500).json({ error: 'Failed to create assignment' })
   }
 }
+
+export default withAuth(handler)

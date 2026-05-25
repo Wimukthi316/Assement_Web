@@ -1,6 +1,7 @@
+import { withAuth } from './lib/authMiddleware.js'
 import { getAssignmentsCollection } from './lib/mongodb.js'
 
-export default async function handler(req, res) {
+async function handler(req, res) {
   if (req.method !== 'DELETE') {
     return res.status(405).json({ error: 'Method not allowed' })
   }
@@ -13,7 +14,7 @@ export default async function handler(req, res) {
     }
 
     const collection = await getAssignmentsCollection()
-    const result = await collection.deleteOne({ id })
+    const result = await collection.deleteOne({ id, userId: req.user.uid })
 
     if (result.deletedCount === 0) {
       return res.status(404).json({ error: 'Assignment not found' })
@@ -25,3 +26,5 @@ export default async function handler(req, res) {
     return res.status(500).json({ error: 'Failed to delete assignment' })
   }
 }
+
+export default withAuth(handler)
