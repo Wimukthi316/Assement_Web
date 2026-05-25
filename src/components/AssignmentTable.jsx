@@ -44,9 +44,10 @@ function PaidBadge({ paid, label }) {
   )
 }
 
-function DueDateCell({ dueDate, status, urgent }) {
-  const overdue = isOverdue(dueDate, status)
-  const today = isDueToday(dueDate)
+function DueDateCell({ dueDate, status, highlightUrgent }) {
+  const overdue = highlightUrgent && isOverdue(dueDate, status)
+  const today = highlightUrgent && isDueToday(dueDate)
+  const urgent = highlightUrgent && isUrgentWarning(dueDate, status)
   const days = daysUntilDue(dueDate)
 
   if (!dueDate) return <span className="text-slate-400">—</span>
@@ -59,11 +60,11 @@ function DueDateCell({ dueDate, status, urgent }) {
         )}
         <span
           className={`text-sm font-medium ${
-            overdue
+            highlightUrgent && overdue
               ? 'text-rose-600 dark:text-rose-400'
-              : urgent
+              : highlightUrgent && urgent
               ? 'text-orange-600 dark:text-orange-400'
-              : today
+              : highlightUrgent && today
               ? 'text-amber-600 dark:text-amber-400'
               : 'text-slate-700 dark:text-slate-200'
           }`}
@@ -74,20 +75,20 @@ function DueDateCell({ dueDate, status, urgent }) {
       {status !== 'Completed' && days !== null && (
         <p
           className={`text-xs mt-0.5 ${
-            overdue
+            highlightUrgent && overdue
               ? 'text-rose-500'
-              : urgent
+              : highlightUrgent && urgent
               ? 'text-orange-500 dark:text-orange-400 font-medium'
-              : today
+              : highlightUrgent && today
               ? 'text-amber-500'
               : 'text-slate-400'
           }`}
         >
-          {overdue
+          {highlightUrgent && overdue
             ? `${Math.abs(days)}d overdue`
-            : today
+            : highlightUrgent && today
             ? 'Due today!'
-            : urgent
+            : highlightUrgent && urgent
             ? `${days}d left — urgent`
             : `${days}d left`}
         </p>
@@ -136,19 +137,21 @@ function RowExpandedDetails({ a }) {
   )
 }
 
-function TableRow({ a, onEdit, onDelete }) {
+function TableRow({ a, onEdit, onDelete, highlightUrgent }) {
   const [expanded, setExpanded] = useState(false)
-  const overdue = isOverdue(a.dueDate, a.assignmentStatus)
-  const completed = a.assignmentStatus === 'Completed'
-  const urgent = isUrgentWarning(a.dueDate, a.assignmentStatus)
+  const overdue = highlightUrgent && isOverdue(a.dueDate, a.assignmentStatus)
+  const completed = highlightUrgent && a.assignmentStatus === 'Completed'
+  const urgent = highlightUrgent && isUrgentWarning(a.dueDate, a.assignmentStatus)
   const profit = calcProfit(a.clientPrice, a.subcontractorPrice)
 
-  const rowBase = completed
-    ? 'bg-emerald-50/40 dark:bg-emerald-900/10'
-    : overdue
-    ? 'bg-rose-50/50 dark:bg-rose-900/15'
-    : urgent
-    ? 'bg-orange-50/60 dark:bg-orange-900/15 ring-1 ring-inset ring-orange-200/60 dark:ring-orange-800/40'
+  const rowBase = highlightUrgent
+    ? completed
+      ? 'bg-emerald-50/40 dark:bg-emerald-900/10'
+      : overdue
+      ? 'bg-rose-50/50 dark:bg-rose-900/15'
+      : urgent
+      ? 'bg-orange-50/60 dark:bg-orange-900/15 ring-1 ring-inset ring-orange-200/60 dark:ring-orange-800/40'
+      : 'bg-white dark:bg-slate-800'
     : 'bg-white dark:bg-slate-800'
 
   return (
@@ -160,13 +163,13 @@ function TableRow({ a, onEdit, onDelete }) {
         <td className="w-1 p-0">
           <div
             className={`w-1 h-full min-h-[52px] rounded-l ${
-              completed
+              highlightUrgent && completed
                 ? 'bg-emerald-400 dark:bg-emerald-500'
-                : overdue
+                : highlightUrgent && overdue
                 ? 'bg-rose-400 dark:bg-rose-500'
-                : urgent
+                : highlightUrgent && urgent
                 ? 'bg-orange-400 dark:bg-orange-500'
-                : isDueToday(a.dueDate)
+                : highlightUrgent && isDueToday(a.dueDate)
                 ? 'bg-amber-400 dark:bg-amber-500'
                 : 'bg-transparent'
             }`}
@@ -182,18 +185,22 @@ function TableRow({ a, onEdit, onDelete }) {
         </td>
 
         <td className="px-4 py-3 min-w-[120px]">
-          <DueDateCell dueDate={a.dueDate} status={a.assignmentStatus} urgent={urgent} />
+          <DueDateCell
+            dueDate={a.dueDate}
+            status={a.assignmentStatus}
+            highlightUrgent={highlightUrgent}
+          />
         </td>
 
         <td className="px-4 py-3">
           <StatusBadge status={a.assignmentStatus} />
-          {overdue && (
+          {highlightUrgent && overdue && (
             <div className="mt-1">
               <AlertTriangle size={11} className="inline text-rose-500 mr-0.5" />
               <span className="text-xs text-rose-500 font-medium">Overdue</span>
             </div>
           )}
-          {urgent && !overdue && (
+          {highlightUrgent && urgent && !overdue && (
             <div className="mt-1">
               <span className="text-xs text-orange-600 dark:text-orange-400 font-semibold">Due soon</span>
             </div>
@@ -264,7 +271,9 @@ function TableRow({ a, onEdit, onDelete }) {
   )
 }
 
-export default function AssignmentTable({ assignments, onEdit, onDelete }) {
+export default function AssignmentTable({ assignments, onEdit, onDelete, activeTab = 'active' }) {
+  const highlightUrgent = activeTab === 'urgent'
+
   if (assignments.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center py-20 text-center rounded-2xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700">
@@ -309,25 +318,39 @@ export default function AssignmentTable({ assignments, onEdit, onDelete }) {
           </thead>
           <tbody>
             {assignments.map((a) => (
-              <TableRow key={a.id} a={a} onEdit={onEdit} onDelete={onDelete} />
+              <TableRow
+                key={a.id}
+                a={a}
+                onEdit={onEdit}
+                onDelete={onDelete}
+                highlightUrgent={highlightUrgent}
+              />
             ))}
           </tbody>
         </table>
       </div>
 
       <div className="px-5 py-3 border-t border-slate-100 dark:border-slate-700/50 flex flex-wrap gap-4 text-xs text-slate-400">
-        <span className="flex items-center gap-1.5">
-          <span className="w-2.5 h-2.5 rounded-sm bg-emerald-400" /> Completed
-        </span>
-        <span className="flex items-center gap-1.5">
-          <span className="w-2.5 h-2.5 rounded-sm bg-rose-400" /> Overdue
-        </span>
-        <span className="flex items-center gap-1.5">
-          <span className="w-2.5 h-2.5 rounded-sm bg-orange-400" /> Due ≤ 2 days
-        </span>
-        <span className="flex items-center gap-1.5">
-          <span className="w-2.5 h-2.5 rounded-sm bg-amber-400" /> Due Today
-        </span>
+        {highlightUrgent ? (
+          <>
+            <span className="flex items-center gap-1.5">
+              <span className="w-2.5 h-2.5 rounded-sm bg-emerald-400" /> Completed
+            </span>
+            <span className="flex items-center gap-1.5">
+              <span className="w-2.5 h-2.5 rounded-sm bg-rose-400" /> Overdue
+            </span>
+            <span className="flex items-center gap-1.5">
+              <span className="w-2.5 h-2.5 rounded-sm bg-orange-400" /> Due ≤ 2 days
+            </span>
+            <span className="flex items-center gap-1.5">
+              <span className="w-2.5 h-2.5 rounded-sm bg-amber-400" /> Due Today
+            </span>
+          </>
+        ) : (
+          <span className="text-slate-400 dark:text-slate-500">
+            Standard view — switch to Urgent tab for due-date highlights
+          </span>
+        )}
         <span className="flex items-center gap-1.5 ml-auto text-slate-300 dark:text-slate-600">
           Click row to expand details
         </span>

@@ -222,6 +222,7 @@ export default function DashboardPage() {
 
             <AssignmentTable
               assignments={filteredAssignments}
+              activeTab={activeTab}
               onEdit={handleEdit}
               onDelete={handleDeleteRequest}
             />
