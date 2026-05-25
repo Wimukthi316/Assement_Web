@@ -6,16 +6,24 @@ function getPrivateKey() {
   return key.replace(/\\n/g, '\n')
 }
 
-if (!admin.apps.length) {
+export function isFirebaseAdminReady() {
+  return admin.apps.length > 0
+}
+
+export function initFirebaseAdmin() {
+  if (admin.apps.length > 0) {
+    return true
+  }
+
   const projectId = process.env.FIREBASE_PROJECT_ID
   const clientEmail = process.env.FIREBASE_CLIENT_EMAIL
   const privateKey = getPrivateKey()
 
   if (!projectId || !clientEmail || !privateKey) {
-    console.warn(
-      'Firebase Admin SDK is not fully configured. Set FIREBASE_PROJECT_ID, FIREBASE_CLIENT_EMAIL, and FIREBASE_PRIVATE_KEY.'
-    )
-  } else {
+    return false
+  }
+
+  try {
     admin.initializeApp({
       credential: admin.credential.cert({
         projectId,
@@ -23,7 +31,13 @@ if (!admin.apps.length) {
         privateKey,
       }),
     })
+    return true
+  } catch (error) {
+    console.error('Firebase Admin initialization failed:', error.message)
+    return false
   }
 }
+
+initFirebaseAdmin()
 
 export default admin

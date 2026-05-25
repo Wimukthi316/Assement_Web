@@ -17,6 +17,7 @@ import AssignmentTable from '../components/AssignmentTable.jsx'
 import AssignmentForm from '../components/AssignmentForm.jsx'
 import ConfirmDialog from '../components/ConfirmDialog.jsx'
 import { LoadingState, ErrorBanner } from '../components/StatusMessages.jsx'
+import { useAuth } from '../context/AuthContext.jsx'
 
 const DEFAULT_FILTERS = {
   status: 'all',
@@ -28,6 +29,7 @@ const DEFAULT_FILTERS = {
 const DEFAULT_SORT = { key: 'dueDate', dir: 'asc' }
 
 export default function DashboardPage() {
+  const { user } = useAuth()
   const [assignments, setAssignments] = useState([])
 
   const [loading, setLoading] = useState(true)
@@ -44,6 +46,8 @@ export default function DashboardPage() {
   const migrationAttempted = useRef(false)
 
   const loadAssignments = useCallback(async () => {
+    if (!user) return
+
     setLoading(true)
     setError(null)
     try {
@@ -54,13 +58,15 @@ export default function DashboardPage() {
     } finally {
       setLoading(false)
     }
-  }, [])
+  }, [user])
 
   useEffect(() => {
+    if (!user) return
     loadAssignments()
-  }, [loadAssignments])
+  }, [user, loadAssignments])
 
   useEffect(() => {
+    if (!user) return
     if (migrationAttempted.current) return
     migrationAttempted.current = true
 
@@ -73,7 +79,7 @@ export default function DashboardPage() {
       .catch(() => {
         // Migration is optional; ignore failures silently
       })
-  }, [loadAssignments])
+  }, [user, loadAssignments])
 
   const summary = useMemo(() => calcSummary(assignments), [assignments])
   const tabCounts = useMemo(() => getTabCounts(assignments), [assignments])

@@ -1,27 +1,47 @@
 import { MongoClient } from 'mongodb'
 
-const uri = process.env.MONGODB_URI
+const options = {}
+let clientPromise = null
 
-if (!uri) {
-  throw new Error('Please define the MONGODB_URI environment variable')
+function getUri() {
+  return process.env.MONGODB_URI
 }
 
-const options = {}
-let clientPromise
-
-if (process.env.NODE_ENV === 'development') {
-  if (!global._mongoClientPromise) {
-    const client = new MongoClient(uri, options)
-    global._mongoClientPromise = client.connect()
+function getClientPromise() {
+  const uri = getUri()
+  if (!uri) {
+    return null
   }
-  clientPromise = global._mongoClientPromise
-} else {
-  const client = new MongoClient(uri, options)
-  clientPromise = client.connect()
+
+  if (clientPromise) {
+    return clientPromise
+  }
+
+  if (process.env.NODE_ENV === 'development') {
+    if (!global._mongoClientPromise) {
+      const client = new MongoClient(uri, options)
+      global._mongoClientPromise = client.connect()
+    }
+    clientPromise = global._mongoClientPromise
+  } else {
+    const client = new MongoClient(uri, options)
+    clientPromise = client.connect()
+  }
+
+  return clientPromise
+}
+
+export function isMongoConfigured() {
+  return Boolean(getUri())
 }
 
 export async function getAssignmentsCollection() {
-  const client = await clientPromise
+  const promise = getClientPromise()
+  if (!promise) {
+    throw new Error('MONGODB_NOT_CONFIGURED')
+  }
+
+  const client = await promise
   return client.db('assigntrack').collection('assignments')
 }
 

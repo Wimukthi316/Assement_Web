@@ -1,17 +1,28 @@
-import admin from './firebaseAdmin.js'
+import admin, { initFirebaseAdmin, isFirebaseAdminReady } from './firebaseAdmin.js'
+
+function sendJson(res, status, body) {
+  if (res.headersSent) return
+  res.status(status).json(body)
+}
 
 export async function verifyAuth(req, res) {
   const authHeader = req.headers.authorization
 
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
-    res.status(401).json({ error: 'Unauthorized: Missing or invalid Authorization header' })
+    sendJson(res, 401, { error: 'Unauthorized: Missing or invalid Authorization header' })
     return null
   }
 
   const token = authHeader.slice('Bearer '.length).trim()
 
   if (!token) {
-    res.status(401).json({ error: 'Unauthorized: Missing token' })
+    sendJson(res, 401, { error: 'Unauthorized: Missing token' })
+    return null
+  }
+
+  if (!isFirebaseAdminReady() && !initFirebaseAdmin()) {
+    console.error('Firebase Admin SDK is not configured')
+    sendJson(res, 503, { error: 'Authentication service is not configured' })
     return null
   }
 
@@ -23,17 +34,28 @@ export async function verifyAuth(req, res) {
     }
   } catch (error) {
     console.error('Token verification failed:', error.message)
-    res.status(401).json({ error: 'Unauthorized: Invalid or expired token' })
+    sendJson(res, 401, { error: 'Unauthorized: Invalid or expired token' })
     return null
   }
 }
 
 export function withAuth(handler) {
   return async (req, res) => {
-    const user = await verifyAuth(req, res)
-    if (!user) return
+    try {
+      const user = await verifyAuth(req, res)
+      if (!user) return
 
-    req.user = user
-    return handler(req, res)
+      req.user = user
+      await handler(req, res)
+    } catch (error) {
+      console.error('Unhandled API error:', error)
+
+      if (error.message === 'MONGODB_NOT_CONFIGURED') {
+        sendJson(res, 503, { error: 'Database is not configured' })
+        return
+      }
+
+      sendJson(res, 500, { error: 'Internal server error' })
+    }
   }
 }

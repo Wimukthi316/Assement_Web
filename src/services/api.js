@@ -1,21 +1,28 @@
 const API_BASE = '/api'
 
 let tokenGetter = async () => null
+let unauthorizedHandler = null
 
 export function setTokenGetter(getter) {
   tokenGetter = getter
 }
 
+export function setUnauthorizedHandler(handler) {
+  unauthorizedHandler = handler
+}
+
 async function request(path, options = {}) {
   const token = await tokenGetter()
 
-  const headers = {
-    'Content-Type': 'application/json',
-    ...options.headers,
+  if (!token) {
+    unauthorizedHandler?.()
+    throw new Error('Unauthorized — please sign in')
   }
 
-  if (token) {
-    headers.Authorization = `Bearer ${token}`
+  const headers = {
+    'Content-Type': 'application/json',
+    Authorization: `Bearer ${token}`,
+    ...options.headers,
   }
 
   const response = await fetch(`${API_BASE}${path}`, {
@@ -35,6 +42,7 @@ async function request(path, options = {}) {
 
   if (!response.ok) {
     if (response.status === 401) {
+      unauthorizedHandler?.()
       throw new Error(data?.error || 'Unauthorized — please sign in again')
     }
     throw new Error(data?.error || `Request failed (${response.status})`)

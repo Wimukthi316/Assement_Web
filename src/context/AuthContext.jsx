@@ -9,7 +9,7 @@ import {
   signOut,
 } from 'firebase/auth'
 import { auth } from '../lib/firebase.js'
-import { setTokenGetter } from '../services/api.js'
+import { setTokenGetter, setUnauthorizedHandler } from '../services/api.js'
 import { getFirebaseErrorMessage } from '../utils/firebaseErrors.js'
 
 const AuthContext = createContext(null)
@@ -23,7 +23,20 @@ export function AuthProvider({ children }) {
     setTokenGetter(async () => {
       const currentUser = auth.currentUser
       if (!currentUser) return null
-      return currentUser.getIdToken()
+      try {
+        return await currentUser.getIdToken()
+      } catch {
+        return null
+      }
+    })
+
+    setUnauthorizedHandler(async () => {
+      try {
+        await signOut(auth)
+      } catch {
+        // Force local unauthenticated state even if signOut fails
+        setUser(null)
+      }
     })
   }, [])
 
@@ -32,6 +45,7 @@ export function AuthProvider({ children }) {
       setUser(firebaseUser)
       setLoading(false)
     })
+
     return unsubscribe
   }, [])
 
