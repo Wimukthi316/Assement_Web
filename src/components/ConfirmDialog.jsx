@@ -1,6 +1,6 @@
 import { AlertTriangle, X } from 'lucide-react'
 
-export default function ConfirmDialog({ message, onConfirm, onCancel }) {
+export default function ConfirmDialog({ message, onConfirm, onCancel, loading = false }) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       {/* Backdrop */}
@@ -32,15 +32,17 @@ export default function ConfirmDialog({ message, onConfirm, onCancel }) {
           <div className="flex gap-3 w-full mt-1">
             <button
               onClick={onCancel}
-              className="flex-1 h-10 rounded-xl text-sm font-medium bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-200 hover:bg-slate-200 dark:hover:bg-slate-600 transition-colors"
+              disabled={loading}
+              className="flex-1 h-10 rounded-xl text-sm font-medium bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-200 hover:bg-slate-200 dark:hover:bg-slate-600 disabled:opacity-60 disabled:cursor-not-allowed transition-colors"
             >
               Cancel
             </button>
             <button
               onClick={onConfirm}
-              className="flex-1 h-10 rounded-xl text-sm font-medium bg-rose-600 hover:bg-rose-700 text-white transition-colors shadow-lg shadow-rose-500/25"
+              disabled={loading}
+              className="flex-1 h-10 rounded-xl text-sm font-medium bg-rose-600 hover:bg-rose-700 disabled:opacity-60 disabled:cursor-not-allowed text-white transition-colors shadow-lg shadow-rose-500/25"
             >
-              Delete
+              {loading ? 'Deleting...' : 'Delete'}
             </button>
           </div>
         </div>

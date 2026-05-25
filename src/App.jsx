@@ -1,20 +1,32 @@
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, useCallback } from 'react'
 import { Plus } from 'lucide-react'
 import { useLocalStorage } from './hooks/useLocalStorage.js'
 import { calcSummary, applyFilters } from './utils/helpers.js'
+import {
+  fetchAssignments,
+  createAssignment,
+  updateAssignment,
+  deleteAssignment,
+  importAssignments,
+} from './services/api.js'
 import Header from './components/Header.jsx'
 import SummaryCards from './components/SummaryCards.jsx'
 import FilterBar from './components/FilterBar.jsx'
 import AssignmentTable from './components/AssignmentTable.jsx'
 import AssignmentForm from './components/AssignmentForm.jsx'
 import ConfirmDialog from './components/ConfirmDialog.jsx'
+import { LoadingState, ErrorBanner } from './components/StatusMessages.jsx'
 
 const DEFAULT_FILTERS = { status: 'all', payment: 'all', date: 'all', search: '' }
 const DEFAULT_SORT = { key: 'dueDate', dir: 'asc' }
 
 export default function App() {
-  const [assignments, setAssignments] = useLocalStorage('assigntrack-data', [])
+  const [assignments, setAssignments] = useState([])
   const [darkMode, setDarkMode] = useLocalStorage('assigntrack-dark', false)
+
+  const [loading, setLoading] = useState(true)
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState(null)
 
   const [filters, setFilters] = useState(DEFAULT_FILTERS)
   const [sortConfig, setSortConfig] = useState(DEFAULT_SORT)
@@ -22,7 +34,23 @@ export default function App() {
   const [editingAssignment, setEditingAssignment] = useState(null)
   const [deleteId, setDeleteId] = useState(null)
 
-  // Apply dark mode class to <html>
+  const loadAssignments = useCallback(async () => {
+    setLoading(true)
+    setError(null)
+    try {
+      const data = await fetchAssignments()
+      setAssignments(Array.isArray(data) ? data : [])
+    } catch (err) {
+      setError(err.message || 'Failed to load assignments')
+    } finally {
+      setLoading(false)
+    }
+  }, [])
+
+  useEffect(() => {
+    loadAssignments()
+  }, [loadAssignments])
+
   useEffect(() => {
     if (darkMode) {
       document.documentElement.classList.add('dark')
@@ -38,17 +66,29 @@ export default function App() {
     [assignments, filters, sortConfig]
   )
 
-  // --- CRUD ---
-  function handleSave(record) {
-    setAssignments((prev) => {
-      const exists = prev.find((a) => a.id === record.id)
-      if (exists) {
-        return prev.map((a) => (a.id === record.id ? record : a))
-      }
-      return [record, ...prev]
-    })
-    setShowForm(false)
-    setEditingAssignment(null)
+  async function handleSave(record) {
+    setSaving(true)
+    setError(null)
+    try {
+      const exists = assignments.some((a) => a.id === record.id)
+      const saved = exists
+        ? await updateAssignment(record)
+        : await createAssignment(record)
+
+      setAssignments((prev) => {
+        if (exists) {
+          return prev.map((a) => (a.id === saved.id ? saved : a))
+        }
+        return [saved, ...prev]
+      })
+      setShowForm(false)
+      setEditingAssignment(null)
+    } catch (err) {
+      setError(err.message || 'Failed to save assignment')
+      throw err
+    } finally {
+      setSaving(false)
+    }
   }
 
   function handleEdit(assignment) {
@@ -60,14 +100,34 @@ export default function App() {
     setDeleteId(id)
   }
 
-  function handleDeleteConfirm() {
-    setAssignments((prev) => prev.filter((a) => a.id !== deleteId))
-    setDeleteId(null)
+  async function handleDeleteConfirm() {
+    setSaving(true)
+    setError(null)
+    try {
+      await deleteAssignment(deleteId)
+      setAssignments((prev) => prev.filter((a) => a.id !== deleteId))
+      setDeleteId(null)
+    } catch (err) {
+      setError(err.message || 'Failed to delete assignment')
+    } finally {
+      setSaving(false)
+    }
   }
 
-  function handleImport(data) {
-    if (window.confirm(`Import ${data.length} records? This will REPLACE all current data.`)) {
-      setAssignments(data)
+  async function handleImport(data) {
+    if (!window.confirm(`Import ${data.length} records? This will REPLACE all current data.`)) {
+      return
+    }
+
+    setSaving(true)
+    setError(null)
+    try {
+      const imported = await importAssignments(data)
+      setAssignments(imported)
+    } catch (err) {
+      setError(err.message || 'Failed to import assignments')
+    } finally {
+      setSaving(false)
     }
   }
 
@@ -77,6 +137,7 @@ export default function App() {
   }
 
   function closeForm() {
+    if (saving) return
     setShowForm(false)
     setEditingAssignment(null)
   }
@@ -88,67 +149,78 @@ export default function App() {
         toggleDarkMode={() => setDarkMode((v) => !v)}
         assignments={assignments}
         onImport={handleImport}
+        disabled={loading || saving}
       />
 
       <main className="max-w-screen-2xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-5">
-        {/* Summary Cards */}
-        <SummaryCards summary={summary} totalAssignments={assignments.length} />
+        {error && (
+          <ErrorBanner
+            message={error}
+            onRetry={loadAssignments}
+            onDismiss={() => setError(null)}
+          />
+        )}
 
-        {/* Filter Bar */}
-        <FilterBar
-          filters={filters}
-          setFilters={setFilters}
-          sortConfig={sortConfig}
-          setSortConfig={setSortConfig}
-          resultCount={filteredAssignments.length}
-        />
+        {loading ? (
+          <LoadingState />
+        ) : (
+          <>
+            <SummaryCards summary={summary} totalAssignments={assignments.length} />
 
-        {/* Table heading row */}
-        <div className="flex items-center justify-between gap-4">
-          <div>
-            <h2 className="text-lg font-bold text-slate-800 dark:text-slate-100">Assignments</h2>
-            <p className="text-sm text-slate-500 dark:text-slate-400">
-              Manage all your client & subcontractor records
+            <FilterBar
+              filters={filters}
+              setFilters={setFilters}
+              sortConfig={sortConfig}
+              setSortConfig={setSortConfig}
+              resultCount={filteredAssignments.length}
+            />
+
+            <div className="flex items-center justify-between gap-4">
+              <div>
+                <h2 className="text-lg font-bold text-slate-800 dark:text-slate-100">Assignments</h2>
+                <p className="text-sm text-slate-500 dark:text-slate-400">
+                  Manage all your client & subcontractor records
+                </p>
+              </div>
+              <button
+                onClick={openAddForm}
+                disabled={saving}
+                className="flex items-center gap-2 px-4 py-2.5 text-sm font-semibold rounded-xl bg-indigo-600 hover:bg-indigo-700 disabled:opacity-60 disabled:cursor-not-allowed text-white transition-colors shadow-lg shadow-indigo-500/25"
+              >
+                <Plus size={16} />
+                <span className="hidden sm:inline">Add Assignment</span>
+                <span className="sm:hidden">Add</span>
+              </button>
+            </div>
+
+            <AssignmentTable
+              assignments={filteredAssignments}
+              onEdit={handleEdit}
+              onDelete={handleDeleteRequest}
+            />
+
+            <p className="text-center text-xs text-slate-400 dark:text-slate-600 pb-4">
+              Data is stored in MongoDB Atlas · Use Export/Import to back up your records
             </p>
-          </div>
-          <button
-            onClick={openAddForm}
-            className="flex items-center gap-2 px-4 py-2.5 text-sm font-semibold rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white transition-colors shadow-lg shadow-indigo-500/25"
-          >
-            <Plus size={16} />
-            <span className="hidden sm:inline">Add Assignment</span>
-            <span className="sm:hidden">Add</span>
-          </button>
-        </div>
-
-        {/* Table */}
-        <AssignmentTable
-          assignments={filteredAssignments}
-          onEdit={handleEdit}
-          onDelete={handleDeleteRequest}
-        />
-
-        {/* Footer */}
-        <p className="text-center text-xs text-slate-400 dark:text-slate-600 pb-4">
-          All data is stored locally in your browser · Use Export/Import to back up your data
-        </p>
+          </>
+        )}
       </main>
 
-      {/* Form Modal */}
       {showForm && (
         <AssignmentForm
           assignment={editingAssignment}
           onSave={handleSave}
           onClose={closeForm}
+          saving={saving}
         />
       )}
 
-      {/* Delete Confirmation */}
       {deleteId && (
         <ConfirmDialog
           message="Are you sure you want to delete this assignment? This action cannot be undone."
           onConfirm={handleDeleteConfirm}
-          onCancel={() => setDeleteId(null)}
+          onCancel={() => !saving && setDeleteId(null)}
+          loading={saving}
         />
       )}
     </div>

@@ -2,7 +2,7 @@ import { Sun, Moon, Download, Upload, FileJson, FileText, BookOpen } from 'lucid
 import { exportJSON, exportCSV } from '../utils/helpers.js'
 import { useState, useRef } from 'react'
 
-export default function Header({ darkMode, toggleDarkMode, assignments, onImport }) {
+export default function Header({ darkMode, toggleDarkMode, assignments, onImport, disabled = false }) {
   const [showExportMenu, setShowExportMenu] = useState(false)
   const fileInputRef = useRef(null)
 
@@ -56,7 +56,8 @@ export default function Header({ darkMode, toggleDarkMode, assignments, onImport
           />
           <button
             onClick={() => fileInputRef.current?.click()}
-            className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-lg text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 border border-slate-200 dark:border-slate-700 transition-colors"
+            disabled={disabled}
+            className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-lg text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 border border-slate-200 dark:border-slate-700 disabled:opacity-60 disabled:cursor-not-allowed transition-colors"
             title="Import JSON"
           >
             <Upload size={15} />

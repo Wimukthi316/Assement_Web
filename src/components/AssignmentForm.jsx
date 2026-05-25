@@ -30,10 +30,11 @@ function Field({ label, required, children }) {
 const inputClass =
   'w-full h-10 px-3 text-sm rounded-xl bg-slate-50 dark:bg-slate-700/50 border border-slate-200 dark:border-slate-600 text-slate-800 dark:text-slate-100 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-500'
 
-export default function AssignmentForm({ assignment, onSave, onClose }) {
+export default function AssignmentForm({ assignment, onSave, onClose, saving = false }) {
   const isEdit = !!assignment
   const [form, setForm] = useState(isEdit ? { ...assignment } : { ...EMPTY_FORM })
   const [errors, setErrors] = useState({})
+  const [submitting, setSubmitting] = useState(false)
 
   useEffect(() => {
     function handleKey(e) {
@@ -60,7 +61,7 @@ export default function AssignmentForm({ assignment, onSave, onClose }) {
     return errs
   }
 
-  function handleSubmit(e) {
+  async function handleSubmit(e) {
     e.preventDefault()
     const errs = validate()
     if (Object.keys(errs).length > 0) {
@@ -75,8 +76,17 @@ export default function AssignmentForm({ assignment, onSave, onClose }) {
       createdAt: isEdit ? form.createdAt : new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     }
-    onSave(record)
+    setSubmitting(true)
+    try {
+      await onSave(record)
+    } catch {
+      // Error is surfaced by App error banner
+    } finally {
+      setSubmitting(false)
+    }
   }
+
+  const isBusy = saving || submitting
 
   const profit = calcProfit(form.clientPrice, form.subcontractorPrice)
   const profitColor =
@@ -303,16 +313,18 @@ export default function AssignmentForm({ assignment, onSave, onClose }) {
             <button
               type="button"
               onClick={onClose}
-              className="flex-1 h-11 rounded-xl text-sm font-medium bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-200 hover:bg-slate-200 dark:hover:bg-slate-600 transition-colors"
+              disabled={isBusy}
+              className="flex-1 h-11 rounded-xl text-sm font-medium bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-200 hover:bg-slate-200 dark:hover:bg-slate-600 disabled:opacity-60 disabled:cursor-not-allowed transition-colors"
             >
               Cancel
             </button>
             <button
               type="submit"
-              className="flex-1 h-11 rounded-xl text-sm font-semibold bg-indigo-600 hover:bg-indigo-700 text-white transition-colors shadow-lg shadow-indigo-500/25 flex items-center justify-center gap-2"
+              disabled={isBusy}
+              className="flex-1 h-11 rounded-xl text-sm font-semibold bg-indigo-600 hover:bg-indigo-700 disabled:opacity-60 disabled:cursor-not-allowed text-white transition-colors shadow-lg shadow-indigo-500/25 flex items-center justify-center gap-2"
             >
               {isEdit ? <Save size={16} /> : <Plus size={16} />}
-              {isEdit ? 'Save Changes' : 'Add Assignment'}
+              {isBusy ? 'Saving...' : isEdit ? 'Save Changes' : 'Add Assignment'}
             </button>
           </div>
         </form>
