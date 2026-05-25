@@ -14,6 +14,11 @@ const PAYMENT_OPTIONS = [
   { value: 'anyUnpaid', label: 'Any Unpaid' },
 ]
 
+const ASSIGNMENT_OPTIONS = [
+  { value: 'all', label: 'All Assignments' },
+  { value: 'unassigned', label: 'Unassigned' },
+]
+
 const DATE_OPTIONS = [
   { value: 'all', label: 'All Dates' },
   { value: 'overdue', label: 'Overdue' },
@@ -47,11 +52,12 @@ export default function FilterBar({ filters, setFilters, sortConfig, setSortConf
   const hasActiveFilters =
     filters.status !== 'all' ||
     filters.payment !== 'all' ||
+    filters.assignment !== 'all' ||
     filters.date !== 'all' ||
     filters.search !== ''
 
   function clearFilters() {
-    setFilters({ status: 'all', payment: 'all', date: 'all', search: '' })
+    setFilters({ status: 'all', payment: 'all', assignment: 'all', date: 'all', search: '' })
   }
 
   function toggleSortDir() {
@@ -61,7 +67,6 @@ export default function FilterBar({ filters, setFilters, sortConfig, setSortConf
   return (
     <div className="rounded-2xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 p-4 shadow-sm">
       <div className="flex flex-wrap gap-3 items-center">
-        {/* Search */}
         <div className="relative flex-1 min-w-48">
           <Search
             size={15}
@@ -76,7 +81,6 @@ export default function FilterBar({ filters, setFilters, sortConfig, setSortConf
           />
         </div>
 
-        {/* Filters group */}
         <div className="flex items-center gap-2 flex-wrap">
           <SlidersHorizontal size={15} className="text-slate-400 shrink-0" />
 
@@ -91,13 +95,17 @@ export default function FilterBar({ filters, setFilters, sortConfig, setSortConf
             options={PAYMENT_OPTIONS}
           />
           <Select
+            value={filters.assignment}
+            onChange={(v) => setFilters((f) => ({ ...f, assignment: v }))}
+            options={ASSIGNMENT_OPTIONS}
+          />
+          <Select
             value={filters.date}
             onChange={(v) => setFilters((f) => ({ ...f, date: v }))}
             options={DATE_OPTIONS}
           />
         </div>
 
-        {/* Sort */}
         <div className="flex items-center gap-2 ml-auto">
           <Select
             value={sortConfig.key}
@@ -123,7 +131,6 @@ export default function FilterBar({ filters, setFilters, sortConfig, setSortConf
         </div>
       </div>
 
-      {/* Result count */}
       <div className="mt-2.5 text-xs text-slate-400 dark:text-slate-500">
         Showing <span className="font-semibold text-slate-600 dark:text-slate-300">{resultCount}</span> assignment{resultCount !== 1 ? 's' : ''}
         {hasActiveFilters && ' (filtered)'}

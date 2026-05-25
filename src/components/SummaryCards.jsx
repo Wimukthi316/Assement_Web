@@ -1,4 +1,4 @@
-import { TrendingUp, DollarSign, AlertCircle, Clock } from 'lucide-react'
+import { TrendingUp, Banknote, AlertCircle, Clock } from 'lucide-react'
 import { formatCurrency } from '../utils/helpers.js'
 
 function Card({ icon: Icon, label, value, sub, iconBg, iconColor, valueColor }) {
@@ -40,7 +40,7 @@ export default function SummaryCards({ summary, totalAssignments }) {
         valueColor="text-indigo-700 dark:text-indigo-300"
       />
       <Card
-        icon={DollarSign}
+        icon={Banknote}
         label="Realized Profit"
         value={formatCurrency(totalRealizedProfit)}
         sub="From paid assignments"
@@ -52,7 +52,7 @@ export default function SummaryCards({ summary, totalAssignments }) {
         icon={AlertCircle}
         label="Client Owes You"
         value={formatCurrency(pendingClientPayments)}
-        sub="Pending client payments"
+        sub="Balance due after advances"
         iconBg="bg-amber-50 dark:bg-amber-900/30"
         iconColor="text-amber-600 dark:text-amber-400"
         valueColor="text-amber-700 dark:text-amber-300"

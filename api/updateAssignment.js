@@ -18,6 +18,9 @@ export default async function handler(req, res) {
     if (updates.clientPrice !== undefined) {
       updates.clientPrice = parseFloat(updates.clientPrice) || 0
     }
+    if (updates.clientAdvance !== undefined) {
+      updates.clientAdvance = parseFloat(updates.clientAdvance) || 0
+    }
     if (updates.subcontractorPrice !== undefined) {
       updates.subcontractorPrice = parseFloat(updates.subcontractorPrice) || 0
     }

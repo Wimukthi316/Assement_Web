@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo, useCallback } from 'react'
 import { Plus } from 'lucide-react'
 import { useLocalStorage } from './hooks/useLocalStorage.js'
-import { calcSummary, applyFilters } from './utils/helpers.js'
+import { calcSummary, applyFilters, getTabCounts } from './utils/helpers.js'
 import {
   fetchAssignments,
   createAssignment,
@@ -11,13 +11,20 @@ import {
 } from './services/api.js'
 import Header from './components/Header.jsx'
 import SummaryCards from './components/SummaryCards.jsx'
+import TabNavigation from './components/TabNavigation.jsx'
 import FilterBar from './components/FilterBar.jsx'
 import AssignmentTable from './components/AssignmentTable.jsx'
 import AssignmentForm from './components/AssignmentForm.jsx'
 import ConfirmDialog from './components/ConfirmDialog.jsx'
 import { LoadingState, ErrorBanner } from './components/StatusMessages.jsx'
 
-const DEFAULT_FILTERS = { status: 'all', payment: 'all', date: 'all', search: '' }
+const DEFAULT_FILTERS = {
+  status: 'all',
+  payment: 'all',
+  assignment: 'all',
+  date: 'all',
+  search: '',
+}
 const DEFAULT_SORT = { key: 'dueDate', dir: 'asc' }
 
 export default function App() {
@@ -28,6 +35,7 @@ export default function App() {
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState(null)
 
+  const [activeTab, setActiveTab] = useState('active')
   const [filters, setFilters] = useState(DEFAULT_FILTERS)
   const [sortConfig, setSortConfig] = useState(DEFAULT_SORT)
   const [showForm, setShowForm] = useState(false)
@@ -60,10 +68,11 @@ export default function App() {
   }, [darkMode])
 
   const summary = useMemo(() => calcSummary(assignments), [assignments])
+  const tabCounts = useMemo(() => getTabCounts(assignments), [assignments])
 
   const filteredAssignments = useMemo(
-    () => applyFilters(assignments, filters, sortConfig),
-    [assignments, filters, sortConfig]
+    () => applyFilters(assignments, filters, sortConfig, activeTab),
+    [assignments, filters, sortConfig, activeTab]
   )
 
   async function handleSave(record) {
@@ -166,6 +175,12 @@ export default function App() {
         ) : (
           <>
             <SummaryCards summary={summary} totalAssignments={assignments.length} />
+
+            <TabNavigation
+              activeTab={activeTab}
+              onTabChange={setActiveTab}
+              counts={tabCounts}
+            />
 
             <FilterBar
               filters={filters}

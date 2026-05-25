@@ -18,12 +18,6 @@ export function isDueToday(dueDate) {
   return new Date(dueDate).toDateString() === today
 }
 
-export function formatDate(dateStr) {
-  if (!dateStr) return '—'
-  const d = new Date(dateStr)
-  return d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })
-}
-
 export function daysUntilDue(dueDate) {
   if (!dueDate) return null
   const now = new Date()
@@ -33,19 +27,45 @@ export function daysUntilDue(dueDate) {
   return Math.round((due - now) / (1000 * 60 * 60 * 24))
 }
 
+export function isDueWithinDays(dueDate, maxDays, status) {
+  if (!dueDate || status === 'Completed') return false
+  const days = daysUntilDue(dueDate)
+  return days !== null && days <= maxDays
+}
+
+export function isUrgentWarning(dueDate, status) {
+  return isDueWithinDays(dueDate, 2, status)
+}
+
+export function formatDate(dateStr) {
+  if (!dateStr) return '—'
+  const d = new Date(dateStr)
+  return d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })
+}
+
 // --- Currency Helpers ---
-export function formatCurrency(value) {
-  const num = parseFloat(value) || 0
-  return new Intl.NumberFormat('en-US', {
+export function formatCurrency(value, { optional = false } = {}) {
+  const num = parseFloat(value)
+  if (optional && (value === '' || value === null || value === undefined || isNaN(num) || num === 0)) {
+    return '—'
+  }
+  return new Intl.NumberFormat('en-LK', {
     style: 'currency',
-    currency: 'USD',
+    currency: 'LKR',
     minimumFractionDigits: 2,
-  }).format(num)
+  }).format(num || 0)
 }
 
 // --- Calculation Helpers ---
 export function calcProfit(clientPrice, subcontractorPrice) {
   return (parseFloat(clientPrice) || 0) - (parseFloat(subcontractorPrice) || 0)
+}
+
+export function calcClientOwes(clientPrice, clientAdvance, clientPaidStatus) {
+  if (clientPaidStatus) return 0
+  const price = parseFloat(clientPrice) || 0
+  const advance = parseFloat(clientAdvance) || 0
+  return Math.max(0, price - advance)
 }
 
 export function calcSummary(assignments) {
@@ -54,9 +74,12 @@ export function calcSummary(assignments) {
       const profit = calcProfit(a.clientPrice, a.subcontractorPrice)
       acc.totalExpectedProfit += profit
       if (a.clientPaidStatus) acc.totalRealizedProfit += profit
-      if (!a.clientPaidStatus) acc.pendingClientPayments += parseFloat(a.clientPrice) || 0
-      if (!a.subcontractorPaidStatus)
+      if (!a.clientPaidStatus) {
+        acc.pendingClientPayments += calcClientOwes(a.clientPrice, a.clientAdvance, a.clientPaidStatus)
+      }
+      if (!a.subcontractorPaidStatus) {
         acc.pendingSubPayments += parseFloat(a.subcontractorPrice) || 0
+      }
       return acc
     },
     {
@@ -66,6 +89,19 @@ export function calcSummary(assignments) {
       pendingSubPayments: 0,
     }
   )
+}
+
+// --- Tab Counts ---
+export function getTabCounts(assignments) {
+  return {
+    active: assignments.filter(
+      (a) => a.assignmentStatus === 'Pending' || a.assignmentStatus === 'In Progress'
+    ).length,
+    urgent: assignments.filter(
+      (a) => a.assignmentStatus !== 'Completed' && isDueWithinDays(a.dueDate, 3, a.assignmentStatus)
+    ).length,
+    completed: assignments.filter((a) => a.assignmentStatus === 'Completed').length,
+  }
 }
 
 // --- Export Helpers ---
@@ -83,7 +119,7 @@ export function exportJSON(assignments) {
 export function exportCSV(assignments) {
   const headers = [
     'ID', 'Date Received', 'Client Name', 'Module Code', 'Due Date',
-    'Client Price', 'Client Paid', 'Subcontractor Name', 'Sub Price',
+    'Client Price', 'Client Advance', 'Client Paid', 'Subcontractor Name', 'Sub Price',
     'Sub Paid', 'Status', 'Profit', 'Notes',
   ]
   const rows = assignments.map((a) => [
@@ -92,10 +128,11 @@ export function exportCSV(assignments) {
     `"${(a.clientName || '').replace(/"/g, '""')}"`,
     a.moduleCode,
     a.dueDate,
-    a.clientPrice,
+    a.clientPrice ?? 0,
+    a.clientAdvance ?? 0,
     a.clientPaidStatus ? 'Yes' : 'No',
     `"${(a.subcontractorName || '').replace(/"/g, '""')}"`,
-    a.subcontractorPrice,
+    a.subcontractorPrice ?? 0,
     a.subcontractorPaidStatus ? 'Yes' : 'No',
     a.assignmentStatus,
     calcProfit(a.clientPrice, a.subcontractorPrice).toFixed(2),
@@ -112,8 +149,22 @@ export function exportCSV(assignments) {
 }
 
 // --- Filter & Sort ---
-export function applyFilters(assignments, filters, sortConfig) {
+export function applyFilters(assignments, filters, sortConfig, activeTab = 'active') {
   let result = [...assignments]
+
+  if (activeTab === 'active') {
+    result = result.filter(
+      (a) => a.assignmentStatus === 'Pending' || a.assignmentStatus === 'In Progress'
+    )
+  } else if (activeTab === 'urgent') {
+    result = result.filter(
+      (a) =>
+        a.assignmentStatus !== 'Completed' &&
+        isDueWithinDays(a.dueDate, 3, a.assignmentStatus)
+    )
+  } else if (activeTab === 'completed') {
+    result = result.filter((a) => a.assignmentStatus === 'Completed')
+  }
 
   if (filters.status !== 'all') {
     result = result.filter((a) => a.assignmentStatus === filters.status)
@@ -125,6 +176,10 @@ export function applyFilters(assignments, filters, sortConfig) {
     result = result.filter((a) => !a.subcontractorPaidStatus)
   } else if (filters.payment === 'anyUnpaid') {
     result = result.filter((a) => !a.clientPaidStatus || !a.subcontractorPaidStatus)
+  }
+
+  if (filters.assignment === 'unassigned') {
+    result = result.filter((a) => !a.subcontractorName?.trim())
   }
 
   if (filters.date === 'overdue') {

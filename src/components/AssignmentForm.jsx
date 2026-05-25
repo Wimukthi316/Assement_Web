@@ -8,12 +8,22 @@ const EMPTY_FORM = {
   moduleCode: '',
   dueDate: '',
   clientPrice: '',
+  clientAdvance: '',
   clientPaidStatus: false,
   subcontractorName: '',
   subcontractorPrice: '',
   subcontractorPaidStatus: false,
   assignmentStatus: 'Pending',
   notes: '',
+}
+
+function toFormValues(assignment) {
+  return {
+    ...assignment,
+    clientPrice: assignment.clientPrice ? String(assignment.clientPrice) : '',
+    clientAdvance: assignment.clientAdvance ? String(assignment.clientAdvance) : '',
+    subcontractorPrice: assignment.subcontractorPrice ? String(assignment.subcontractorPrice) : '',
+  }
 }
 
 function Field({ label, required, children }) {
@@ -32,7 +42,7 @@ const inputClass =
 
 export default function AssignmentForm({ assignment, onSave, onClose, saving = false }) {
   const isEdit = !!assignment
-  const [form, setForm] = useState(isEdit ? { ...assignment } : { ...EMPTY_FORM })
+  const [form, setForm] = useState(isEdit ? toFormValues(assignment) : { ...EMPTY_FORM })
   const [errors, setErrors] = useState({})
   const [submitting, setSubmitting] = useState(false)
 
@@ -54,10 +64,15 @@ export default function AssignmentForm({ assignment, onSave, onClose, saving = f
     if (!form.clientName.trim()) errs.clientName = 'Required'
     if (!form.moduleCode.trim()) errs.moduleCode = 'Required'
     if (!form.dueDate) errs.dueDate = 'Required'
-    if (form.clientPrice === '' || isNaN(Number(form.clientPrice)))
+    if (form.clientPrice !== '' && isNaN(Number(form.clientPrice))) {
       errs.clientPrice = 'Must be a number'
-    if (form.subcontractorPrice === '' || isNaN(Number(form.subcontractorPrice)))
+    }
+    if (form.clientAdvance !== '' && isNaN(Number(form.clientAdvance))) {
+      errs.clientAdvance = 'Must be a number'
+    }
+    if (form.subcontractorPrice !== '' && isNaN(Number(form.subcontractorPrice))) {
       errs.subcontractorPrice = 'Must be a number'
+    }
     return errs
   }
 
@@ -71,8 +86,10 @@ export default function AssignmentForm({ assignment, onSave, onClose, saving = f
     const record = {
       ...form,
       id: isEdit ? form.id : generateId(),
-      clientPrice: parseFloat(form.clientPrice) || 0,
-      subcontractorPrice: parseFloat(form.subcontractorPrice) || 0,
+      clientPrice: form.clientPrice === '' ? 0 : parseFloat(form.clientPrice) || 0,
+      clientAdvance: form.clientAdvance === '' ? 0 : parseFloat(form.clientAdvance) || 0,
+      subcontractorPrice: form.subcontractorPrice === '' ? 0 : parseFloat(form.subcontractorPrice) || 0,
+      subcontractorName: form.subcontractorName?.trim() || '',
       createdAt: isEdit ? form.createdAt : new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     }
@@ -196,18 +213,33 @@ export default function AssignmentForm({ assignment, onSave, onClose, saving = f
             Client Payment
           </p>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
-            <Field label="Client Price (USD)" required>
+            <Field label="Client Price (LKR)">
               <input
                 type="number"
                 min="0"
                 step="0.01"
                 className={`${inputClass} ${errors.clientPrice ? 'border-rose-400 focus:ring-rose-500/50' : ''}`}
-                placeholder="0.00"
+                placeholder="Leave blank if TBD"
                 value={form.clientPrice}
                 onChange={(e) => set('clientPrice', e.target.value)}
               />
               {errors.clientPrice && (
                 <p className="text-xs text-rose-500 mt-1">{errors.clientPrice}</p>
+              )}
+            </Field>
+
+            <Field label="Client Advance (LKR)">
+              <input
+                type="number"
+                min="0"
+                step="0.01"
+                className={`${inputClass} ${errors.clientAdvance ? 'border-rose-400 focus:ring-rose-500/50' : ''}`}
+                placeholder="Advance received"
+                value={form.clientAdvance}
+                onChange={(e) => set('clientAdvance', e.target.value)}
+              />
+              {errors.clientAdvance && (
+                <p className="text-xs text-rose-500 mt-1">{errors.clientAdvance}</p>
               )}
             </Field>
 
@@ -240,19 +272,19 @@ export default function AssignmentForm({ assignment, onSave, onClose, saving = f
             <Field label="Subcontractor Name">
               <input
                 className={inputClass}
-                placeholder="Jane Doe"
+                placeholder="Leave blank if self-assigned"
                 value={form.subcontractorName}
                 onChange={(e) => set('subcontractorName', e.target.value)}
               />
             </Field>
 
-            <Field label="Subcontractor Price (USD)" required>
+            <Field label="Subcontractor Price (LKR)">
               <input
                 type="number"
                 min="0"
                 step="0.01"
                 className={`${inputClass} ${errors.subcontractorPrice ? 'border-rose-400 focus:ring-rose-500/50' : ''}`}
-                placeholder="0.00"
+                placeholder="Leave blank if TBD"
                 value={form.subcontractorPrice}
                 onChange={(e) => set('subcontractorPrice', e.target.value)}
               />
@@ -294,7 +326,7 @@ export default function AssignmentForm({ assignment, onSave, onClose, saving = f
               {formatCurrency(profit)}
             </p>
             <p className="text-xs text-slate-400 mt-0.5">
-              {formatCurrency(form.clientPrice || 0)} (client) − {formatCurrency(form.subcontractorPrice || 0)} (sub)
+              {formatCurrency(form.clientPrice || 0, { optional: true })} (client) − {formatCurrency(form.subcontractorPrice || 0, { optional: true })} (sub)
             </p>
           </div>
 

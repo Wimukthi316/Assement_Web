@@ -27,6 +27,7 @@ export default async function handler(req, res) {
       moduleCode: body.moduleCode.trim(),
       dueDate: body.dueDate,
       clientPrice: parseFloat(body.clientPrice) || 0,
+      clientAdvance: parseFloat(body.clientAdvance) || 0,
       clientPaidStatus: Boolean(body.clientPaidStatus),
       subcontractorName: body.subcontractorName || '',
       subcontractorPrice: parseFloat(body.subcontractorPrice) || 0,
