@@ -6,6 +6,7 @@ import {
   getTabCounts,
   getCurrentAssignments,
   getHistoryAssignments,
+  getSeasonGroups,
   formatCurrency,
 } from '../utils/helpers.js'
 import {
@@ -20,6 +21,7 @@ import {
 import Header from '../components/Header.jsx'
 import SummaryCards from '../components/SummaryCards.jsx'
 import TabNavigation from '../components/TabNavigation.jsx'
+import SeasonPicker from '../components/SeasonPicker.jsx'
 import FilterBar from '../components/FilterBar.jsx'
 import AssignmentTable from '../components/AssignmentTable.jsx'
 import AssignmentForm from '../components/AssignmentForm.jsx'
@@ -52,6 +54,7 @@ export default function DashboardPage() {
   const [editingAssignment, setEditingAssignment] = useState(null)
   const [deleteId, setDeleteId] = useState(null)
   const [showResetConfirm, setShowResetConfirm] = useState(false)
+  const [selectedSeasonId, setSelectedSeasonId] = useState(null)
 
   const migrationAttempted = useRef(false)
   const isHistoryTab = activeTab === 'history'
@@ -94,14 +97,47 @@ export default function DashboardPage() {
 
   const currentAssignments = useMemo(() => getCurrentAssignments(assignments), [assignments])
   const historyAssignments = useMemo(() => getHistoryAssignments(assignments), [assignments])
+  const seasonGroups = useMemo(() => getSeasonGroups(historyAssignments), [historyAssignments])
 
-  const summaryScope = isHistoryTab ? historyAssignments : currentAssignments
+  // When entering History, default to newest season (or keep selection if still valid)
+  useEffect(() => {
+    if (!isHistoryTab) return
+    if (!seasonGroups.length) {
+      setSelectedSeasonId(null)
+      return
+    }
+    const stillValid =
+      selectedSeasonId === 'all' ||
+      seasonGroups.some((s) => s.seasonId === selectedSeasonId)
+    if (!stillValid) {
+      setSelectedSeasonId(seasonGroups[0].seasonId)
+    }
+  }, [isHistoryTab, seasonGroups, selectedSeasonId])
+
+  const selectedSeason = useMemo(() => {
+    if (!isHistoryTab || !selectedSeasonId || selectedSeasonId === 'all') return null
+    return seasonGroups.find((s) => s.seasonId === selectedSeasonId) || null
+  }, [isHistoryTab, selectedSeasonId, seasonGroups])
+
+  const summaryScope = useMemo(() => {
+    if (!isHistoryTab) return currentAssignments
+    if (selectedSeasonId === 'all' || !selectedSeasonId) return historyAssignments
+    if (selectedSeason) return selectedSeason.assignments
+    return historyAssignments
+  }, [
+    isHistoryTab,
+    currentAssignments,
+    historyAssignments,
+    selectedSeasonId,
+    selectedSeason,
+  ])
+
   const summary = useMemo(() => calcSummary(summaryScope), [summaryScope])
   const tabCounts = useMemo(() => getTabCounts(assignments), [assignments])
 
   const filteredAssignments = useMemo(
-    () => applyFilters(assignments, filters, sortConfig, activeTab),
-    [assignments, filters, sortConfig, activeTab]
+    () => applyFilters(assignments, filters, sortConfig, activeTab, selectedSeasonId),
+    [assignments, filters, sortConfig, activeTab, selectedSeasonId]
   )
 
   async function handleSave(record) {
@@ -167,6 +203,9 @@ export default function DashboardPage() {
       await loadAssignments()
       setShowResetConfirm(false)
       setActiveTab('history')
+      if (result.seasonId) {
+        setSelectedSeasonId(result.seasonId)
+      }
       setSuccessMessage(
         result.message ||
           `Moved ${result.archivedCount} assignment(s) to History. Current totals are now zero.`
@@ -246,16 +285,30 @@ export default function DashboardPage() {
               totalAssignments={summaryScope.length}
               scopeLabel={
                 isHistoryTab
-                  ? `History · ${historyAssignments.length} archived`
+                  ? selectedSeason
+                    ? `${selectedSeason.label} · closed ${selectedSeason.archivedAt ? new Date(selectedSeason.archivedAt).toLocaleDateString('en-GB') : ''}`
+                    : selectedSeasonId === 'all'
+                    ? `All history · ${historyAssignments.length} archived`
+                    : `History · ${historyAssignments.length} archived`
                   : `Current season · ${currentAssignments.length} open`
               }
             />
 
             <TabNavigation
               activeTab={activeTab}
-              onTabChange={setActiveTab}
+              onTabChange={(tab) => {
+                setActiveTab(tab)
+              }}
               counts={tabCounts}
             />
+
+            {isHistoryTab && (
+              <SeasonPicker
+                seasons={seasonGroups}
+                selectedSeasonId={selectedSeasonId || 'all'}
+                onSelect={setSelectedSeasonId}
+              />
+            )}
 
             <FilterBar
               filters={filters}
@@ -268,11 +321,17 @@ export default function DashboardPage() {
             <div className="flex flex-wrap items-center justify-between gap-4">
               <div>
                 <h2 className="text-lg font-bold text-slate-800 dark:text-slate-100">
-                  {isHistoryTab ? 'Season History' : 'Assignments'}
+                  {isHistoryTab
+                    ? selectedSeason
+                      ? selectedSeason.label
+                      : 'All Season History'
+                    : 'Assignments'}
                 </h2>
                 <p className="text-sm text-slate-500 dark:text-slate-400">
                   {isHistoryTab
-                    ? 'Past seasons kept for reference — totals above are from archived records'
+                    ? selectedSeason
+                      ? `Viewing one closed season only · ${selectedSeason.count} assignment(s)`
+                      : 'Select a season card above to inspect it separately'
                     : 'Manage your current season · Close season to zero totals and archive'}
                 </p>
               </div>

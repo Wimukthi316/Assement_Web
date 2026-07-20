@@ -103,6 +103,58 @@ export function getHistoryAssignments(assignments) {
   return assignments.filter((a) => isArchivedAssignment(a))
 }
 
+/**
+ * Group archived assignments into closed seasons.
+ * Season 1 = earliest closed, Season 2 = next, etc.
+ * Returns newest-first for the UI picker.
+ */
+export function getSeasonGroups(historyAssignments) {
+  const map = new Map()
+
+  for (const a of historyAssignments) {
+    const id = a.seasonId || 'legacy'
+    if (!map.has(id)) {
+      map.set(id, {
+        seasonId: id,
+        archivedAt: a.archivedAt || a.updatedAt || null,
+        assignments: [],
+      })
+    }
+    const group = map.get(id)
+    group.assignments.push(a)
+    const stamp = a.archivedAt || a.updatedAt
+    if (stamp && (!group.archivedAt || stamp > group.archivedAt)) {
+      group.archivedAt = stamp
+    }
+  }
+
+  const chronological = [...map.values()].sort(
+    (a, b) => new Date(a.archivedAt || 0) - new Date(b.archivedAt || 0)
+  )
+
+  chronological.forEach((group, index) => {
+    group.seasonNumber = index + 1
+    group.label =
+      group.seasonId === 'legacy' ? 'Legacy / Unlabeled' : `Season ${index + 1}`
+    group.count = group.assignments.length
+    group.summary = calcSummary(group.assignments)
+  })
+
+  // Newest closed seasons first in the picker
+  return chronological.slice().reverse()
+}
+
+export function formatSeasonClosedDate(archivedAt) {
+  if (!archivedAt) return 'Unknown date'
+  return new Date(archivedAt).toLocaleDateString('en-GB', {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  })
+}
+
 // --- Tab Counts ---
 export function getTabCounts(assignments) {
   const current = getCurrentAssignments(assignments)
@@ -165,11 +217,18 @@ export function exportCSV(assignments) {
 }
 
 // --- Filter & Sort ---
-export function applyFilters(assignments, filters, sortConfig, activeTab = 'active') {
+export function applyFilters(assignments, filters, sortConfig, activeTab = 'active', selectedSeasonId = null) {
   let result = [...assignments]
 
   if (activeTab === 'history') {
     result = result.filter((a) => isArchivedAssignment(a))
+    if (selectedSeasonId && selectedSeasonId !== 'all') {
+      if (selectedSeasonId === 'legacy') {
+        result = result.filter((a) => !a.seasonId)
+      } else {
+        result = result.filter((a) => a.seasonId === selectedSeasonId)
+      }
+    }
   } else {
     result = result.filter((a) => !isArchivedAssignment(a))
 
