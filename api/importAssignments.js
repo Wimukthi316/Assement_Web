@@ -30,6 +30,9 @@ async function handler(req, res) {
       subcontractorPaidStatus: Boolean(item.subcontractorPaidStatus),
       assignmentStatus: item.assignmentStatus || 'Pending',
       notes: item.notes || '',
+      isArchived: Boolean(item.isArchived),
+      archivedAt: item.archivedAt || null,
+      seasonId: item.seasonId || null,
       createdAt: item.createdAt || now,
       updatedAt: now,
     }))

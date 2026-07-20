@@ -85,3 +85,7 @@ export async function importAssignments(assignments) {
 export async function migrateLegacyData() {
   return request('/migrateLegacyData', { method: 'POST' })
 }
+
+export async function resetSeason() {
+  return request('/resetSeason', { method: 'POST' })
+}

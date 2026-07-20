@@ -24,12 +24,16 @@ function Card({ icon: Icon, label, value, sub, iconBg, iconColor, valueColor }) 
   )
 }
 
-export default function SummaryCards({ summary, totalAssignments }) {
+export default function SummaryCards({ summary, totalAssignments, scopeLabel = 'Current season' }) {
   const { totalExpectedProfit, totalRealizedProfit, pendingClientPayments, pendingSubPayments } =
     summary
 
   return (
-    <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+    <div className="space-y-2">
+      <p className="text-xs font-semibold text-slate-400 dark:text-slate-500 uppercase tracking-wider px-0.5">
+        {scopeLabel}
+      </p>
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
       <Card
         icon={TrendingUp}
         label="Total Expected Profit"
@@ -66,6 +70,7 @@ export default function SummaryCards({ summary, totalAssignments }) {
         iconColor="text-rose-600 dark:text-rose-400"
         valueColor="text-rose-700 dark:text-rose-300"
       />
+      </div>
     </div>
   )
 }

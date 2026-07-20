@@ -1,6 +1,13 @@
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react'
-import { Plus } from 'lucide-react'
-import { calcSummary, applyFilters, getTabCounts } from '../utils/helpers.js'
+import { Plus, RotateCcw } from 'lucide-react'
+import {
+  calcSummary,
+  applyFilters,
+  getTabCounts,
+  getCurrentAssignments,
+  getHistoryAssignments,
+  formatCurrency,
+} from '../utils/helpers.js'
 import {
   fetchAssignments,
   createAssignment,
@@ -8,6 +15,7 @@ import {
   deleteAssignment,
   importAssignments,
   migrateLegacyData,
+  resetSeason,
 } from '../services/api.js'
 import Header from '../components/Header.jsx'
 import SummaryCards from '../components/SummaryCards.jsx'
@@ -35,6 +43,7 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState(null)
+  const [successMessage, setSuccessMessage] = useState(null)
 
   const [activeTab, setActiveTab] = useState('active')
   const [filters, setFilters] = useState(DEFAULT_FILTERS)
@@ -42,8 +51,10 @@ export default function DashboardPage() {
   const [showForm, setShowForm] = useState(false)
   const [editingAssignment, setEditingAssignment] = useState(null)
   const [deleteId, setDeleteId] = useState(null)
+  const [showResetConfirm, setShowResetConfirm] = useState(false)
 
   const migrationAttempted = useRef(false)
+  const isHistoryTab = activeTab === 'history'
 
   const loadAssignments = useCallback(async () => {
     if (!user) return
@@ -81,7 +92,11 @@ export default function DashboardPage() {
       })
   }, [user, loadAssignments])
 
-  const summary = useMemo(() => calcSummary(assignments), [assignments])
+  const currentAssignments = useMemo(() => getCurrentAssignments(assignments), [assignments])
+  const historyAssignments = useMemo(() => getHistoryAssignments(assignments), [assignments])
+
+  const summaryScope = isHistoryTab ? historyAssignments : currentAssignments
+  const summary = useMemo(() => calcSummary(summaryScope), [summaryScope])
   const tabCounts = useMemo(() => getTabCounts(assignments), [assignments])
 
   const filteredAssignments = useMemo(
@@ -94,9 +109,12 @@ export default function DashboardPage() {
     setError(null)
     try {
       const exists = assignments.some((a) => a.id === record.id)
+      const payload = exists
+        ? record
+        : { ...record, isArchived: false, archivedAt: null, seasonId: null }
       const saved = exists
-        ? await updateAssignment(record)
-        : await createAssignment(record)
+        ? await updateAssignment(payload)
+        : await createAssignment(payload)
 
       setAssignments((prev) => {
         if (exists) {
@@ -106,6 +124,9 @@ export default function DashboardPage() {
       })
       setShowForm(false)
       setEditingAssignment(null)
+      if (!exists && isHistoryTab) {
+        setActiveTab('active')
+      }
     } catch (err) {
       setError(err.message || 'Failed to save assignment')
       throw err
@@ -132,6 +153,26 @@ export default function DashboardPage() {
       setDeleteId(null)
     } catch (err) {
       setError(err.message || 'Failed to delete assignment')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  async function handleResetSeason() {
+    setSaving(true)
+    setError(null)
+    setSuccessMessage(null)
+    try {
+      const result = await resetSeason()
+      await loadAssignments()
+      setShowResetConfirm(false)
+      setActiveTab('history')
+      setSuccessMessage(
+        result.message ||
+          `Moved ${result.archivedCount} assignment(s) to History. Current totals are now zero.`
+      )
+    } catch (err) {
+      setError(err.message || 'Failed to reset season')
     } finally {
       setSaving(false)
     }
@@ -165,10 +206,12 @@ export default function DashboardPage() {
     setEditingAssignment(null)
   }
 
+  const currentProfitPreview = calcSummary(currentAssignments).totalExpectedProfit
+
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-slate-100">
       <Header
-        assignments={assignments}
+        assignments={currentAssignments}
         onImport={handleImport}
         disabled={loading || saving}
       />
@@ -182,11 +225,31 @@ export default function DashboardPage() {
           />
         )}
 
+        {successMessage && (
+          <div className="rounded-xl border border-emerald-200 dark:border-emerald-800 bg-emerald-50 dark:bg-emerald-900/20 px-4 py-3 flex items-start justify-between gap-3">
+            <p className="text-sm text-emerald-800 dark:text-emerald-200">{successMessage}</p>
+            <button
+              onClick={() => setSuccessMessage(null)}
+              className="text-xs font-medium text-emerald-700 dark:text-emerald-300 hover:underline shrink-0"
+            >
+              Dismiss
+            </button>
+          </div>
+        )}
+
         {loading ? (
           <LoadingState />
         ) : (
           <>
-            <SummaryCards summary={summary} totalAssignments={assignments.length} />
+            <SummaryCards
+              summary={summary}
+              totalAssignments={summaryScope.length}
+              scopeLabel={
+                isHistoryTab
+                  ? `History · ${historyAssignments.length} archived`
+                  : `Current season · ${currentAssignments.length} open`
+              }
+            />
 
             <TabNavigation
               activeTab={activeTab}
@@ -202,22 +265,40 @@ export default function DashboardPage() {
               resultCount={filteredAssignments.length}
             />
 
-            <div className="flex items-center justify-between gap-4">
+            <div className="flex flex-wrap items-center justify-between gap-4">
               <div>
-                <h2 className="text-lg font-bold text-slate-800 dark:text-slate-100">Assignments</h2>
+                <h2 className="text-lg font-bold text-slate-800 dark:text-slate-100">
+                  {isHistoryTab ? 'Season History' : 'Assignments'}
+                </h2>
                 <p className="text-sm text-slate-500 dark:text-slate-400">
-                  Manage all your client & subcontractor records
+                  {isHistoryTab
+                    ? 'Past seasons kept for reference — totals above are from archived records'
+                    : 'Manage your current season · Close season to zero totals and archive'}
                 </p>
               </div>
-              <button
-                onClick={openAddForm}
-                disabled={saving}
-                className="flex items-center gap-2 px-4 py-2.5 text-sm font-semibold rounded-xl bg-indigo-600 hover:bg-indigo-700 disabled:opacity-60 disabled:cursor-not-allowed text-white transition-colors shadow-lg shadow-indigo-500/25"
-              >
-                <Plus size={16} />
-                <span className="hidden sm:inline">Add Assignment</span>
-                <span className="sm:hidden">Add</span>
-              </button>
+              <div className="flex flex-wrap items-center gap-2">
+                {!isHistoryTab && (
+                  <button
+                    onClick={() => setShowResetConfirm(true)}
+                    disabled={saving || currentAssignments.length === 0}
+                    className="flex items-center gap-2 px-4 py-2.5 text-sm font-semibold rounded-xl bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                    title="Archive current season and reset dashboard totals to zero"
+                  >
+                    <RotateCcw size={16} />
+                    <span className="hidden sm:inline">Close Season / Reset</span>
+                    <span className="sm:hidden">Reset</span>
+                  </button>
+                )}
+                <button
+                  onClick={openAddForm}
+                  disabled={saving}
+                  className="flex items-center gap-2 px-4 py-2.5 text-sm font-semibold rounded-xl bg-indigo-600 hover:bg-indigo-700 disabled:opacity-60 disabled:cursor-not-allowed text-white transition-colors shadow-lg shadow-indigo-500/25"
+                >
+                  <Plus size={16} />
+                  <span className="hidden sm:inline">Add Assignment</span>
+                  <span className="sm:hidden">Add</span>
+                </button>
+              </div>
             </div>
 
             <AssignmentTable
@@ -228,7 +309,9 @@ export default function DashboardPage() {
             />
 
             <p className="text-center text-xs text-slate-400 dark:text-slate-600 pb-4">
-              Data is stored securely in MongoDB Atlas · Each account sees only its own records
+              Current season expected profit: {formatCurrency(currentProfitPreview)}
+              {historyAssignments.length > 0 &&
+                ` · ${historyAssignments.length} in History`}
             </p>
           </>
         )}
@@ -245,9 +328,24 @@ export default function DashboardPage() {
 
       {deleteId && (
         <ConfirmDialog
+          title="Delete Assignment"
           message="Are you sure you want to delete this assignment? This action cannot be undone."
+          confirmLabel="Delete"
+          confirmVariant="danger"
           onConfirm={handleDeleteConfirm}
           onCancel={() => !saving && setDeleteId(null)}
+          loading={saving}
+        />
+      )}
+
+      {showResetConfirm && (
+        <ConfirmDialog
+          title="Close Season & Reset Totals"
+          message={`This will move all ${currentAssignments.length} current assignment(s) into History and reset profit / pending totals to zero for a new season. History stays available in the History tab. Continue?`}
+          confirmLabel="Close Season"
+          confirmVariant="primary"
+          onConfirm={handleResetSeason}
+          onCancel={() => !saving && setShowResetConfirm(false)}
           loading={saving}
         />
       )}

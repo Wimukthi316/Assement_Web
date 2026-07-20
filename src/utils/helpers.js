@@ -91,16 +91,32 @@ export function calcSummary(assignments) {
   )
 }
 
+export function isArchivedAssignment(a) {
+  return a?.isArchived === true
+}
+
+export function getCurrentAssignments(assignments) {
+  return assignments.filter((a) => !isArchivedAssignment(a))
+}
+
+export function getHistoryAssignments(assignments) {
+  return assignments.filter((a) => isArchivedAssignment(a))
+}
+
 // --- Tab Counts ---
 export function getTabCounts(assignments) {
+  const current = getCurrentAssignments(assignments)
+  const history = getHistoryAssignments(assignments)
+
   return {
-    active: assignments.filter(
+    active: current.filter(
       (a) => a.assignmentStatus === 'Pending' || a.assignmentStatus === 'In Progress'
     ).length,
-    urgent: assignments.filter(
+    urgent: current.filter(
       (a) => a.assignmentStatus !== 'Completed' && isDueWithinDays(a.dueDate, 3, a.assignmentStatus)
     ).length,
-    completed: assignments.filter((a) => a.assignmentStatus === 'Completed').length,
+    completed: current.filter((a) => a.assignmentStatus === 'Completed').length,
+    history: history.length,
   }
 }
 
@@ -152,18 +168,24 @@ export function exportCSV(assignments) {
 export function applyFilters(assignments, filters, sortConfig, activeTab = 'active') {
   let result = [...assignments]
 
-  if (activeTab === 'active') {
-    result = result.filter(
-      (a) => a.assignmentStatus === 'Pending' || a.assignmentStatus === 'In Progress'
-    )
-  } else if (activeTab === 'urgent') {
-    result = result.filter(
-      (a) =>
-        a.assignmentStatus !== 'Completed' &&
-        isDueWithinDays(a.dueDate, 3, a.assignmentStatus)
-    )
-  } else if (activeTab === 'completed') {
-    result = result.filter((a) => a.assignmentStatus === 'Completed')
+  if (activeTab === 'history') {
+    result = result.filter((a) => isArchivedAssignment(a))
+  } else {
+    result = result.filter((a) => !isArchivedAssignment(a))
+
+    if (activeTab === 'active') {
+      result = result.filter(
+        (a) => a.assignmentStatus === 'Pending' || a.assignmentStatus === 'In Progress'
+      )
+    } else if (activeTab === 'urgent') {
+      result = result.filter(
+        (a) =>
+          a.assignmentStatus !== 'Completed' &&
+          isDueWithinDays(a.dueDate, 3, a.assignmentStatus)
+      )
+    } else if (activeTab === 'completed') {
+      result = result.filter((a) => a.assignmentStatus === 'Completed')
+    }
   }
 
   if (filters.status !== 'all') {
@@ -219,6 +241,10 @@ export function applyFilters(assignments, filters, sortConfig, activeTab = 'acti
       case 'clientPrice':
         aVal = parseFloat(a.clientPrice) || 0
         bVal = parseFloat(b.clientPrice) || 0
+        break
+      case 'archivedAt':
+        aVal = new Date(a.archivedAt || 0)
+        bVal = new Date(b.archivedAt || 0)
         break
       default:
         aVal = new Date(a.dateReceived || 0)

@@ -346,6 +346,10 @@ export default function AssignmentTable({ assignments, onEdit, onDelete, activeT
               <span className="w-2.5 h-2.5 rounded-sm bg-amber-400" /> Due Today
             </span>
           </>
+        ) : activeTab === 'history' ? (
+          <span className="text-slate-400 dark:text-slate-500">
+            History view — archived seasons · dashboard totals above are from History
+          </span>
         ) : (
           <span className="text-slate-400 dark:text-slate-500">
             Standard view — switch to Urgent tab for due-date highlights

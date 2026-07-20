@@ -36,6 +36,9 @@ async function handler(req, res) {
       subcontractorPaidStatus: Boolean(body.subcontractorPaidStatus),
       assignmentStatus: body.assignmentStatus || 'Pending',
       notes: body.notes || '',
+      isArchived: false,
+      archivedAt: null,
+      seasonId: null,
       createdAt: body.createdAt || now,
       updatedAt: now,
     }
