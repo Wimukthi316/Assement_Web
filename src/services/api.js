@@ -89,3 +89,9 @@ export async function migrateLegacyData() {
 export async function resetSeason() {
   return request('/resetSeason', { method: 'POST' })
 }
+
+export async function deleteSeason(seasonId) {
+  return request(`/deleteSeason?seasonId=${encodeURIComponent(seasonId)}`, {
+    method: 'DELETE',
+  })
+}

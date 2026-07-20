@@ -1,7 +1,7 @@
-import { CalendarRange, Layers } from 'lucide-react'
+import { CalendarRange, Layers, Trash2 } from 'lucide-react'
 import { formatCurrency, formatSeasonClosedDate } from '../utils/helpers.js'
 
-export default function SeasonPicker({ seasons, selectedSeasonId, onSelect }) {
+export default function SeasonPicker({ seasons, selectedSeasonId, onSelect, onDeleteSeason, deleting = false }) {
   if (!seasons.length) {
     return (
       <div className="rounded-2xl border border-dashed border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 px-4 py-8 text-center">
@@ -37,18 +37,25 @@ export default function SeasonPicker({ seasons, selectedSeasonId, onSelect }) {
         {seasons.map((season) => {
           const isSelected = selectedSeasonId === season.seasonId
           return (
-            <button
+            <div
               key={season.seasonId}
-              type="button"
+              role="button"
+              tabIndex={0}
               onClick={() => onSelect(season.seasonId)}
-              className={`text-left rounded-2xl border p-4 transition-all ${
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault()
+                  onSelect(season.seasonId)
+                }
+              }}
+              className={`text-left rounded-2xl border p-4 transition-all cursor-pointer ${
                 isSelected
                   ? 'border-indigo-500 bg-indigo-50 dark:bg-indigo-900/20 dark:border-indigo-400 shadow-sm ring-1 ring-indigo-500/30'
                   : 'border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:border-slate-300 dark:hover:border-slate-600'
               }`}
             >
               <div className="flex items-start justify-between gap-2 mb-2">
-                <div>
+                <div className="min-w-0">
                   <p className={`text-sm font-bold ${isSelected ? 'text-indigo-700 dark:text-indigo-300' : 'text-slate-800 dark:text-slate-100'}`}>
                     {season.label}
                   </p>
@@ -57,15 +64,29 @@ export default function SeasonPicker({ seasons, selectedSeasonId, onSelect }) {
                     Closed {formatSeasonClosedDate(season.archivedAt)}
                   </p>
                 </div>
-                <span
-                  className={`text-xs font-bold px-2 py-0.5 rounded-full ${
-                    isSelected
-                      ? 'bg-indigo-600 text-white'
-                      : 'bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-300'
-                  }`}
-                >
-                  {season.count}
-                </span>
+                <div className="flex items-center gap-1.5 shrink-0">
+                  <span
+                    className={`text-xs font-bold px-2 py-0.5 rounded-full ${
+                      isSelected
+                        ? 'bg-indigo-600 text-white'
+                        : 'bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-300'
+                    }`}
+                  >
+                    {season.count}
+                  </span>
+                  <button
+                    type="button"
+                    title={`Delete ${season.label} permanently`}
+                    disabled={deleting}
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      onDeleteSeason?.(season)
+                    }}
+                    className="w-8 h-8 flex items-center justify-center rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-900/30 dark:hover:text-rose-400 disabled:opacity-50 transition-colors"
+                  >
+                    <Trash2 size={14} />
+                  </button>
+                </div>
               </div>
               <div className="grid grid-cols-2 gap-2 mt-3 pt-3 border-t border-slate-100 dark:border-slate-700/80">
                 <div>
@@ -81,7 +102,7 @@ export default function SeasonPicker({ seasons, selectedSeasonId, onSelect }) {
                   </p>
                 </div>
               </div>
-            </button>
+            </div>
           )
         })}
       </div>

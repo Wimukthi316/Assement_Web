@@ -17,6 +17,7 @@ import {
   importAssignments,
   migrateLegacyData,
   resetSeason,
+  deleteSeason,
 } from '../services/api.js'
 import Header from '../components/Header.jsx'
 import SummaryCards from '../components/SummaryCards.jsx'
@@ -54,6 +55,7 @@ export default function DashboardPage() {
   const [editingAssignment, setEditingAssignment] = useState(null)
   const [deleteId, setDeleteId] = useState(null)
   const [showResetConfirm, setShowResetConfirm] = useState(false)
+  const [seasonToDelete, setSeasonToDelete] = useState(null)
   const [selectedSeasonId, setSelectedSeasonId] = useState(null)
 
   const migrationAttempted = useRef(false)
@@ -194,6 +196,37 @@ export default function DashboardPage() {
     }
   }
 
+  async function handleDeleteSeasonConfirm() {
+    if (!seasonToDelete) return
+    setSaving(true)
+    setError(null)
+    setSuccessMessage(null)
+    try {
+      const result = await deleteSeason(seasonToDelete.seasonId)
+      setAssignments((prev) =>
+        prev.filter((a) => {
+          if (!a.isArchived) return true
+          if (seasonToDelete.seasonId === 'legacy') {
+            return Boolean(a.seasonId)
+          }
+          return a.seasonId !== seasonToDelete.seasonId
+        })
+      )
+      if (selectedSeasonId === seasonToDelete.seasonId) {
+        setSelectedSeasonId('all')
+      }
+      setSeasonToDelete(null)
+      setSuccessMessage(
+        result.message ||
+          `Deleted ${result.deletedCount} assignment(s) from ${seasonToDelete.label}`
+      )
+    } catch (err) {
+      setError(err.message || 'Failed to delete season')
+    } finally {
+      setSaving(false)
+    }
+  }
+
   async function handleResetSeason() {
     setSaving(true)
     setError(null)
@@ -307,6 +340,8 @@ export default function DashboardPage() {
                 seasons={seasonGroups}
                 selectedSeasonId={selectedSeasonId || 'all'}
                 onSelect={setSelectedSeasonId}
+                onDeleteSeason={setSeasonToDelete}
+                deleting={saving}
               />
             )}
 
@@ -330,8 +365,8 @@ export default function DashboardPage() {
                 <p className="text-sm text-slate-500 dark:text-slate-400">
                   {isHistoryTab
                     ? selectedSeason
-                      ? `Viewing one closed season only · ${selectedSeason.count} assignment(s)`
-                      : 'Select a season card above to inspect it separately'
+                      ? `Viewing one closed season · delete a single row with the trash icon, or delete the whole season from the card above`
+                      : 'Select a season card above · trash icon on a card deletes that whole season'
                     : 'Manage your current season · Close season to zero totals and archive'}
                 </p>
               </div>
@@ -388,11 +423,23 @@ export default function DashboardPage() {
       {deleteId && (
         <ConfirmDialog
           title="Delete Assignment"
-          message="Are you sure you want to delete this assignment? This action cannot be undone."
-          confirmLabel="Delete"
+          message="Are you sure you want to permanently delete this one assignment? This cannot be undone."
+          confirmLabel="Delete Record"
           confirmVariant="danger"
           onConfirm={handleDeleteConfirm}
           onCancel={() => !saving && setDeleteId(null)}
+          loading={saving}
+        />
+      )}
+
+      {seasonToDelete && (
+        <ConfirmDialog
+          title={`Delete ${seasonToDelete.label}?`}
+          message={`This will permanently delete all ${seasonToDelete.count} assignment(s) in ${seasonToDelete.label}. This cannot be undone.`}
+          confirmLabel="Delete Season"
+          confirmVariant="danger"
+          onConfirm={handleDeleteSeasonConfirm}
+          onCancel={() => !saving && setSeasonToDelete(null)}
           loading={saving}
         />
       )}
