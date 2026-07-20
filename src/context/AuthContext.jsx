@@ -4,7 +4,8 @@ import {
   signInWithEmailAndPassword,
   createUserWithEmailAndPassword,
   updateProfile,
-  signInWithPopup,
+  signInWithRedirect,
+  getRedirectResult,
   GoogleAuthProvider,
   signOut,
   setPersistence,
@@ -25,6 +26,15 @@ import {
 const AuthContext = createContext(null)
 
 const ACTIVITY_EVENTS = ['mousedown', 'keydown', 'touchstart', 'scroll', 'mousemove']
+const GOOGLE_REDIRECT_FLAG = 'assigntrack-google-redirect'
+
+function createGoogleProvider() {
+  const provider = new GoogleAuthProvider()
+  provider.setCustomParameters({ prompt: 'select_account' })
+  provider.addScope('profile')
+  provider.addScope('email')
+  return provider
+}
 
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null)
@@ -83,24 +93,57 @@ export function AuthProvider({ children }) {
     })
   }, [endSession])
 
+  // Handle Google redirect return BEFORE attaching auth listener
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
-      if (firebaseUser) {
-        const reason = getSessionExpiryReason()
-        // No tracked session (browser closed) OR idle/max expired → force re-login
-        if (reason) {
-          endSession(reason === 'missing' ? 'missing' : reason)
-        } else {
-          setUser(firebaseUser)
-        }
-      } else {
-        clearSessionMeta()
-        setUser(null)
-      }
-      setLoading(false)
-    })
+    let unsubscribed = false
+    let unsubscribeAuth = () => {}
 
-    return unsubscribe
+    async function initAuth() {
+      try {
+        const result = await getRedirectResult(auth)
+        if (result?.user) {
+          startSession()
+          sessionStorage.removeItem(GOOGLE_REDIRECT_FLAG)
+          setSessionMessage(null)
+          setAuthError(null)
+        } else if (sessionStorage.getItem(GOOGLE_REDIRECT_FLAG) === '1') {
+          // Redirect started but no user returned (cancelled / failed)
+          sessionStorage.removeItem(GOOGLE_REDIRECT_FLAG)
+        }
+      } catch (error) {
+        sessionStorage.removeItem(GOOGLE_REDIRECT_FLAG)
+        if (error.code !== 'auth/popup-closed-by-user') {
+          setAuthError(getFirebaseErrorMessage(error))
+        }
+      }
+
+      if (unsubscribed) return
+
+      unsubscribeAuth = onAuthStateChanged(auth, (firebaseUser) => {
+        if (firebaseUser) {
+          const reason = getSessionExpiryReason()
+          if (reason === 'idle' || reason === 'max') {
+            endSession(reason)
+          } else if (reason === 'missing') {
+            // Session meta missing (e.g. browser reopen) — require fresh login
+            endSession('missing')
+          } else {
+            setUser(firebaseUser)
+          }
+        } else {
+          clearSessionMeta()
+          setUser(null)
+        }
+        setLoading(false)
+      })
+    }
+
+    initAuth()
+
+    return () => {
+      unsubscribed = true
+      unsubscribeAuth()
+    }
   }, [endSession])
 
   // Track user activity + poll for expiry while logged in
@@ -176,15 +219,12 @@ export function AuthProvider({ children }) {
     setAuthError(null)
     setSessionMessage(null)
     try {
-      const provider = new GoogleAuthProvider()
-      provider.setCustomParameters({ prompt: 'select_account' })
-      const result = await signInWithPopup(auth, provider)
-      startSession()
-      return result.user
+      // Redirect flow avoids Cross-Origin-Opener-Policy blocking window.closed (popup)
+      sessionStorage.setItem(GOOGLE_REDIRECT_FLAG, '1')
+      await signInWithRedirect(auth, createGoogleProvider())
     } catch (error) {
-      if (error.code !== 'auth/popup-closed-by-user') {
-        setAuthError(getFirebaseErrorMessage(error))
-      }
+      sessionStorage.removeItem(GOOGLE_REDIRECT_FLAG)
+      setAuthError(getFirebaseErrorMessage(error))
       throw error
     }
   }, [])

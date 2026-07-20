@@ -261,8 +261,17 @@ export default function LoginPage() {
               disabled={submitting}
               className="w-full h-11 rounded-xl text-sm font-semibold bg-white dark:bg-slate-700/50 border border-slate-200 dark:border-slate-600 hover:bg-slate-50 dark:hover:bg-slate-700 disabled:opacity-60 disabled:cursor-not-allowed text-slate-700 dark:text-slate-200 transition-colors flex items-center justify-center gap-3 shadow-sm"
             >
-              <GoogleIcon />
-              Sign in with Google
+              {submitting ? (
+                  <>
+                    <Loader2 size={16} className="animate-spin" />
+                    Redirecting to Google...
+                  </>
+                ) : (
+                  <>
+                    <GoogleIcon />
+                    Sign in with Google
+                  </>
+                )}
             </button>
           </div>
         </div>
