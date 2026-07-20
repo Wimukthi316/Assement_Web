@@ -37,7 +37,7 @@ function Select({ value, onChange, options, className = '' }) {
     <select
       value={value}
       onChange={(e) => onChange(e.target.value)}
-      className={`h-9 pl-3 pr-8 text-sm rounded-lg bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-500 cursor-pointer ${className}`}
+      className={`h-9 pl-3 pr-8 text-sm rounded-lg bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-500 cursor-pointer shrink-0 ${className}`}
     >
       {options.map((o) => (
         <option key={o.value} value={o.value}>
@@ -65,9 +65,9 @@ export default function FilterBar({ filters, setFilters, sortConfig, setSortConf
   }
 
   return (
-    <div className="rounded-2xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 p-4 shadow-sm">
-      <div className="flex flex-wrap gap-3 items-center">
-        <div className="relative flex-1 min-w-48">
+    <div className="rounded-2xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 p-4 shadow-sm overflow-hidden">
+      <div className="flex flex-col gap-3">
+        <div className="relative w-full">
           <Search
             size={15}
             className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none"
@@ -81,7 +81,7 @@ export default function FilterBar({ filters, setFilters, sortConfig, setSortConf
           />
         </div>
 
-        <div className="flex items-center gap-2 flex-wrap">
+        <div className="scroll-x flex items-center gap-2 pb-1">
           <SlidersHorizontal size={15} className="text-slate-400 shrink-0" />
 
           <Select
@@ -104,25 +104,27 @@ export default function FilterBar({ filters, setFilters, sortConfig, setSortConf
             onChange={(v) => setFilters((f) => ({ ...f, date: v }))}
             options={DATE_OPTIONS}
           />
-        </div>
 
-        <div className="flex items-center gap-2 ml-auto">
+          <div className="w-px h-6 bg-slate-200 dark:bg-slate-700 shrink-0 mx-0.5" />
+
           <Select
             value={sortConfig.key}
             onChange={(v) => setSortConfig((s) => ({ ...s, key: v }))}
             options={SORT_OPTIONS}
           />
           <button
+            type="button"
             onClick={toggleSortDir}
             title={`Sort ${sortConfig.dir === 'asc' ? 'ascending' : 'descending'}`}
-            className="h-9 w-9 flex items-center justify-center rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-500 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors"
+            className="h-9 w-9 shrink-0 flex items-center justify-center rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-500 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors"
           >
             <ArrowUpDown size={15} className={sortConfig.dir === 'asc' ? '' : 'rotate-180'} />
           </button>
           {hasActiveFilters && (
             <button
+              type="button"
               onClick={clearFilters}
-              className="h-9 flex items-center gap-1.5 px-3 text-sm font-medium rounded-lg bg-rose-50 dark:bg-rose-900/20 text-rose-600 dark:text-rose-400 hover:bg-rose-100 dark:hover:bg-rose-900/40 border border-rose-200 dark:border-rose-800 transition-colors"
+              className="h-9 shrink-0 flex items-center gap-1.5 px-3 text-sm font-medium rounded-lg bg-rose-50 dark:bg-rose-900/20 text-rose-600 dark:text-rose-400 hover:bg-rose-100 dark:hover:bg-rose-900/40 border border-rose-200 dark:border-rose-800 transition-colors"
             >
               <X size={13} />
               Clear

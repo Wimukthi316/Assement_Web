@@ -41,8 +41,8 @@ export default function Header({ assignments, onImport, disabled = false }) {
 
   return (
     <header className="sticky top-0 z-40 border-b border-slate-200 dark:border-slate-700 bg-white/90 dark:bg-slate-900/90 backdrop-blur-sm">
-      <div className="max-w-screen-2xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between gap-4">
-        <div className="flex items-center gap-3 min-w-0">
+      <div className="max-w-screen-2xl mx-auto px-4 sm:px-6 lg:px-8 min-h-16 py-2 sm:py-0 sm:h-16 flex items-center justify-between gap-3">
+        <div className="flex items-center gap-3 min-w-0 shrink-0">
           <div className="w-9 h-9 rounded-xl bg-indigo-600 dark:bg-indigo-500 flex items-center justify-center shrink-0 shadow-lg shadow-indigo-500/30">
             <BookOpen size={18} className="text-white" />
           </div>
@@ -56,7 +56,7 @@ export default function Header({ assignments, onImport, disabled = false }) {
           </div>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="scroll-x flex items-center gap-2 min-w-0 pb-0.5">
           <input
             ref={fileInputRef}
             type="file"

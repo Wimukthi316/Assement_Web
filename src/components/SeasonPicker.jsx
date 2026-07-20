@@ -33,7 +33,7 @@ export default function SeasonPicker({ seasons, selectedSeasonId, onSelect, onDe
         </button>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+      <div className="scroll-x flex gap-3 pb-1 -mx-0.5 px-0.5">
         {seasons.map((season) => {
           const isSelected = selectedSeasonId === season.seasonId
           return (
@@ -48,7 +48,7 @@ export default function SeasonPicker({ seasons, selectedSeasonId, onSelect, onDe
                   onSelect(season.seasonId)
                 }
               }}
-              className={`text-left rounded-2xl border p-4 transition-all cursor-pointer ${
+              className={`text-left rounded-2xl border p-4 transition-all cursor-pointer shrink-0 w-[min(100%,280px)] sm:w-[280px] ${
                 isSelected
                   ? 'border-indigo-500 bg-indigo-50 dark:bg-indigo-900/20 dark:border-indigo-400 shadow-sm ring-1 ring-indigo-500/30'
                   : 'border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:border-slate-300 dark:hover:border-slate-600'

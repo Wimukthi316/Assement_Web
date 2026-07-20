@@ -288,7 +288,7 @@ export default function DashboardPage() {
         disabled={loading || saving}
       />
 
-      <main className="max-w-screen-2xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-5">
+      <main className="max-w-screen-2xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-6 space-y-5 overflow-x-hidden">
         {error && (
           <ErrorBanner
             message={error}
