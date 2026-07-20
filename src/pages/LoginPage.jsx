@@ -33,7 +33,15 @@ const labelClass =
   'block text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1.5'
 
 export default function LoginPage() {
-  const { loginWithEmail, signUpWithEmail, loginWithGoogle, authError, setAuthError } = useAuth()
+  const {
+    loginWithEmail,
+    signUpWithEmail,
+    loginWithGoogle,
+    authError,
+    setAuthError,
+    sessionExpired,
+    clearSessionExpired,
+  } = useAuth()
   const [mode, setMode] = useState('login')
   const [fullName, setFullName] = useState('')
   const [email, setEmail] = useState('')
@@ -45,6 +53,7 @@ export default function LoginPage() {
     setMode(nextMode)
     setLocalError('')
     setAuthError(null)
+    clearSessionExpired()
     if (nextMode === 'login') {
       setFullName('')
     }
@@ -54,6 +63,7 @@ export default function LoginPage() {
     e.preventDefault()
     setLocalError('')
     setAuthError(null)
+    clearSessionExpired()
 
     if (mode === 'signup' && !fullName.trim()) {
       setLocalError('Please enter your full name')
@@ -87,6 +97,7 @@ export default function LoginPage() {
   async function handleGoogleSignIn() {
     setLocalError('')
     setAuthError(null)
+    clearSessionExpired()
     setSubmitting(true)
     try {
       await loginWithGoogle()
@@ -152,6 +163,15 @@ export default function LoginPage() {
           </div>
 
           <div className="p-6 space-y-5">
+            {sessionExpired && !displayError && (
+              <div className="flex items-start gap-2.5 rounded-xl bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 px-3.5 py-3">
+                <AlertCircle size={16} className="text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
+                <p className="text-sm text-amber-800 dark:text-amber-200">
+                  Your session expired after 30 minutes of inactivity. Please sign in again.
+                </p>
+              </div>
+            )}
+
             {displayError && (
               <div className="flex items-start gap-2.5 rounded-xl bg-rose-50 dark:bg-rose-900/20 border border-rose-200 dark:border-rose-800 px-3.5 py-3">
                 <AlertCircle size={16} className="text-rose-500 dark:text-rose-400 shrink-0 mt-0.5" />

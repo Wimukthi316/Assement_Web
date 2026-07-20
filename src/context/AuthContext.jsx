@@ -11,6 +11,7 @@ import {
 import { auth } from '../lib/firebase.js'
 import { setTokenGetter, setUnauthorizedHandler } from '../services/api.js'
 import { getFirebaseErrorMessage } from '../utils/firebaseErrors.js'
+import { useSessionTimeout } from '../hooks/useSessionTimeout.js'
 
 const AuthContext = createContext(null)
 
@@ -18,6 +19,7 @@ export function AuthProvider({ children }) {
   const [user, setUser] = useState(null)
   const [loading, setLoading] = useState(true)
   const [authError, setAuthError] = useState(null)
+  const [sessionExpired, setSessionExpired] = useState(false)
 
   useEffect(() => {
     setTokenGetter(async () => {
@@ -97,11 +99,26 @@ export function AuthProvider({ children }) {
     await signOut(auth)
   }, [])
 
+  const logoutDueToInactivity = useCallback(async () => {
+    setSessionExpired(true)
+    setAuthError(null)
+    await signOut(auth)
+  }, [])
+
+  // Auto sign-out after 30 minutes of inactivity
+  useSessionTimeout(user, logoutDueToInactivity)
+
+  const clearSessionExpired = useCallback(() => {
+    setSessionExpired(false)
+  }, [])
+
   const value = {
     user,
     loading,
     authError,
     setAuthError,
+    sessionExpired,
+    clearSessionExpired,
     getIdToken,
     loginWithEmail,
     signUpWithEmail,
