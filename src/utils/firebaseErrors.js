@@ -7,10 +7,6 @@ const FIREBASE_ERROR_MESSAGES = {
   'auth/wrong-password': 'Incorrect password. Please try again.',
   'auth/too-many-requests': 'Too many attempts. Please try again later.',
   'auth/popup-blocked': 'Pop-up was blocked. Please allow pop-ups and try again.',
-  'auth/popup-closed-by-user': 'Sign-in was cancelled.',
-  'auth/cancelled-popup-request': 'Sign-in was cancelled.',
-  'auth/unauthorized-domain':
-    'This domain is not authorized for Google Sign-In. Add it in Firebase Console → Authentication → Settings → Authorized domains.',
   'auth/account-exists-with-different-credential':
     'An account already exists with this email using a different sign-in method.',
 }

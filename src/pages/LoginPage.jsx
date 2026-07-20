@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { BookOpen, Mail, Lock, Loader2, AlertCircle, User, Clock } from 'lucide-react'
+import { BookOpen, Mail, Lock, Loader2, AlertCircle, User } from 'lucide-react'
 import { useAuth } from '../context/AuthContext.jsx'
 import ThemeToggle from '../components/ThemeToggle.jsx'
 
@@ -33,15 +33,7 @@ const labelClass =
   'block text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1.5'
 
 export default function LoginPage() {
-  const {
-    loginWithEmail,
-    signUpWithEmail,
-    loginWithGoogle,
-    authError,
-    setAuthError,
-    sessionMessage,
-    clearSessionMessage,
-  } = useAuth()
+  const { loginWithEmail, signUpWithEmail, loginWithGoogle, authError, setAuthError } = useAuth()
   const [mode, setMode] = useState('login')
   const [fullName, setFullName] = useState('')
   const [email, setEmail] = useState('')
@@ -53,7 +45,6 @@ export default function LoginPage() {
     setMode(nextMode)
     setLocalError('')
     setAuthError(null)
-    clearSessionMessage?.()
     if (nextMode === 'login') {
       setFullName('')
     }
@@ -161,13 +152,6 @@ export default function LoginPage() {
           </div>
 
           <div className="p-6 space-y-5">
-            {sessionMessage && (
-              <div className="flex items-start gap-2.5 rounded-xl bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 px-3.5 py-3">
-                <Clock size={16} className="text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
-                <p className="text-sm text-amber-800 dark:text-amber-200">{sessionMessage}</p>
-              </div>
-            )}
-
             {displayError && (
               <div className="flex items-start gap-2.5 rounded-xl bg-rose-50 dark:bg-rose-900/20 border border-rose-200 dark:border-rose-800 px-3.5 py-3">
                 <AlertCircle size={16} className="text-rose-500 dark:text-rose-400 shrink-0 mt-0.5" />
@@ -261,17 +245,8 @@ export default function LoginPage() {
               disabled={submitting}
               className="w-full h-11 rounded-xl text-sm font-semibold bg-white dark:bg-slate-700/50 border border-slate-200 dark:border-slate-600 hover:bg-slate-50 dark:hover:bg-slate-700 disabled:opacity-60 disabled:cursor-not-allowed text-slate-700 dark:text-slate-200 transition-colors flex items-center justify-center gap-3 shadow-sm"
             >
-              {submitting ? (
-                  <>
-                    <Loader2 size={16} className="animate-spin" />
-                    Redirecting to Google...
-                  </>
-                ) : (
-                  <>
-                    <GoogleIcon />
-                    Sign in with Google
-                  </>
-                )}
+              <GoogleIcon />
+              Sign in with Google
             </button>
           </div>
         </div>
