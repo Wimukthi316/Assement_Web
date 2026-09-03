@@ -1,5 +1,5 @@
-import { withAuth } from './lib/authMiddleware.js'
-import { getAssignmentsCollection } from './lib/mongodb.js'
+import { withAuth } from './_lib/authMiddleware.js'
+import { getAssignmentsCollection } from './_lib/mongodb.js'
 
 async function handler(req, res) {
   if (req.method !== 'DELETE') {

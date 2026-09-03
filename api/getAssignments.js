@@ -1,6 +1,6 @@
-import { withAuth } from './lib/authMiddleware.js'
-import { getAssignmentsCollection, sanitizeAssignment } from './lib/mongodb.js'
-import { autoMigrateLegacyIfConfigured } from './lib/migrateLegacy.js'
+import { withAuth } from './_lib/authMiddleware.js'
+import { getAssignmentsCollection, sanitizeAssignment } from './_lib/mongodb.js'
+import { autoMigrateLegacyIfConfigured } from './_lib/migrateLegacy.js'
 
 async function handler(req, res) {
   if (req.method !== 'GET') {

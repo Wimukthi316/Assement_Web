@@ -1,5 +1,5 @@
-import { withAuth } from './lib/authMiddleware.js'
-import { getAssignmentsCollection, sanitizeAssignment } from './lib/mongodb.js'
+import { withAuth } from './_lib/authMiddleware.js'
+import { getAssignmentsCollection, sanitizeAssignment } from './_lib/mongodb.js'
 
 async function handler(req, res) {
   if (req.method !== 'PUT' && req.method !== 'PATCH') {

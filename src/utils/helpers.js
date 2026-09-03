@@ -4,9 +4,9 @@ import {
   getSettlementStats,
   getSubcontractorSettlement,
   BLOCKER_LABELS,
-} from '../../api/lib/settlement.js'
+} from '../../api/_lib/settlement.js'
 
-// Settlement rules live in api/lib/settlement.js so the API applies the exact
+// Settlement rules live in api/_lib/settlement.js so the API applies the exact
 // same definition of "settled" that the dashboard previews.
 export {
   isSettledAssignment,

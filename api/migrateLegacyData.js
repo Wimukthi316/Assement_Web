@@ -1,5 +1,5 @@
-import { withAuth } from './lib/authMiddleware.js'
-import { migrateLegacyRecordsToUser } from './lib/migrateLegacy.js'
+import { withAuth } from './_lib/authMiddleware.js'
+import { migrateLegacyRecordsToUser } from './_lib/migrateLegacy.js'
 
 async function handler(req, res) {
   if (req.method !== 'POST') {
