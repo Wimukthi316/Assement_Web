@@ -1,3 +1,21 @@
+import {
+  isSettledAssignment,
+  getSettlementBlockers,
+  getSettlementStats,
+  getSubcontractorSettlement,
+  BLOCKER_LABELS,
+} from '../../shared/settlement.js'
+
+// Settlement rules live in shared/settlement.js so the API applies the exact
+// same definition of "settled" that the dashboard previews.
+export {
+  isSettledAssignment,
+  getSettlementBlockers,
+  getSettlementStats,
+  getSubcontractorSettlement,
+  BLOCKER_LABELS,
+}
+
 // --- ID Generation ---
 export function generateId() {
   if (typeof crypto !== 'undefined' && crypto.randomUUID) {

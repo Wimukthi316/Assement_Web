@@ -90,6 +90,10 @@ export async function resetSeason() {
   return request('/resetSeason', { method: 'POST' })
 }
 
+export async function archiveSettled() {
+  return request('/archiveSettled', { method: 'POST' })
+}
+
 export async function deleteSeason(seasonId) {
   return request(`/deleteSeason?seasonId=${encodeURIComponent(seasonId)}`, {
     method: 'DELETE',

@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react'
-import { Plus, RotateCcw } from 'lucide-react'
+import { Plus, RotateCcw, PackageCheck } from 'lucide-react'
 import {
   calcSummary,
   applyFilters,
@@ -7,6 +7,8 @@ import {
   getCurrentAssignments,
   getHistoryAssignments,
   getSeasonGroups,
+  getSettlementStats,
+  BLOCKER_LABELS,
   formatCurrency,
 } from '../utils/helpers.js'
 import {
@@ -17,6 +19,7 @@ import {
   importAssignments,
   migrateLegacyData,
   resetSeason,
+  archiveSettled,
   deleteSeason,
 } from '../services/api.js'
 import Header from '../components/Header.jsx'
@@ -55,6 +58,7 @@ export default function DashboardPage() {
   const [editingAssignment, setEditingAssignment] = useState(null)
   const [deleteId, setDeleteId] = useState(null)
   const [showResetConfirm, setShowResetConfirm] = useState(false)
+  const [showSettledConfirm, setShowSettledConfirm] = useState(false)
   const [seasonToDelete, setSeasonToDelete] = useState(null)
   const [selectedSeasonId, setSelectedSeasonId] = useState(null)
 
@@ -133,6 +137,11 @@ export default function DashboardPage() {
     selectedSeasonId,
     selectedSeason,
   ])
+
+  const settlement = useMemo(
+    () => getSettlementStats(currentAssignments),
+    [currentAssignments]
+  )
 
   const summary = useMemo(() => calcSummary(summaryScope), [summaryScope])
   const tabCounts = useMemo(() => getTabCounts(assignments), [assignments])
@@ -245,6 +254,29 @@ export default function DashboardPage() {
       )
     } catch (err) {
       setError(err.message || 'Failed to reset season')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  async function handleArchiveSettled() {
+    setSaving(true)
+    setError(null)
+    setSuccessMessage(null)
+    try {
+      const result = await archiveSettled()
+      await loadAssignments()
+      setShowSettledConfirm(false)
+      // Stay on the current tab — unsettled assignments are still open here.
+      if (result.seasonId) {
+        setSelectedSeasonId(result.seasonId)
+      }
+      setSuccessMessage(
+        result.message ||
+          `Moved ${result.archivedCount} settled assignment(s) to History.`
+      )
+    } catch (err) {
+      setError(err.message || 'Failed to archive settled assignments')
     } finally {
       setSaving(false)
     }
@@ -367,11 +399,25 @@ export default function DashboardPage() {
                     ? selectedSeason
                       ? `Viewing one closed season · delete a single row with the trash icon, or delete the whole season from the card above`
                       : 'Select a season card above · trash icon on a card deletes that whole season'
-                    : 'Manage your current season · Close season to zero totals and archive'}
+                    : `Manage your current season · ${settlement.settled.length} settled, ${settlement.blocked.length} still open`}
                 </p>
               </div>
               <div className="flex flex-wrap items-center gap-2">
                 {!isHistoryTab && (
+                  <>
+                  <button
+                    onClick={() => setShowSettledConfirm(true)}
+                    disabled={saving || settlement.settled.length === 0}
+                    className="flex items-center gap-2 px-4 py-2.5 text-sm font-semibold rounded-xl bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed text-white transition-colors shadow-lg shadow-emerald-500/25"
+                    title="Archive only assignments that are Completed and fully paid on both sides"
+                  >
+                    <PackageCheck size={16} />
+                    <span className="hidden sm:inline">Archive Settled</span>
+                    <span className="sm:hidden">Settled</span>
+                    <span className="min-w-[1.25rem] px-1.5 py-0.5 rounded-full text-xs font-bold tabular-nums bg-white/20">
+                      {settlement.settled.length}
+                    </span>
+                  </button>
                   <button
                     onClick={() => setShowResetConfirm(true)}
                     disabled={saving || currentAssignments.length === 0}
@@ -382,6 +428,7 @@ export default function DashboardPage() {
                     <span className="hidden sm:inline">Close Season / Reset</span>
                     <span className="sm:hidden">Reset</span>
                   </button>
+                  </>
                 )}
                 <button
                   onClick={openAddForm}
@@ -440,6 +487,36 @@ export default function DashboardPage() {
           confirmVariant="danger"
           onConfirm={handleDeleteSeasonConfirm}
           onCancel={() => !saving && setSeasonToDelete(null)}
+          loading={saving}
+        />
+      )}
+
+      {showSettledConfirm && (
+        <ConfirmDialog
+          title="Archive Settled Assignments"
+          message={
+            <>
+              <span className="block">
+                This moves the {settlement.settled.length} assignment(s) that are
+                Completed and fully paid (client and subcontractor) into History
+                as a new season. The other{' '}
+                {settlement.blocked.length} assignment(s) stay in the current
+                season.
+              </span>
+              {settlement.blocked.length > 0 && (
+                <span className="block mt-2 text-left text-xs text-slate-400 dark:text-slate-500">
+                  Held back:{' '}
+                  {Object.entries(settlement.blockerCounts)
+                    .map(([key, count]) => `${count} ${BLOCKER_LABELS[key] || key}`)
+                    .join(' · ')}
+                </span>
+              )}
+            </>
+          }
+          confirmLabel="Archive Settled"
+          confirmVariant="primary"
+          onConfirm={handleArchiveSettled}
+          onCancel={() => !saving && setShowSettledConfirm(false)}
           loading={saving}
         />
       )}
