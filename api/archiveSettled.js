@@ -1,7 +1,7 @@
 import { randomUUID } from 'crypto'
 import { withAuth } from './lib/authMiddleware.js'
 import { getAssignmentsCollection } from './lib/mongodb.js'
-import { isSettledAssignment } from '../shared/settlement.js'
+import { isSettledAssignment } from './lib/settlement.js'
 
 async function handler(req, res) {
   if (req.method !== 'POST') {
