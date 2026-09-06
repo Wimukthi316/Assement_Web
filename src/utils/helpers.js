@@ -154,6 +154,8 @@ export function getAnalytics(assignments = [], { from = null, to = null, basis =
     paidToSubs: 0,
     owedToSubs: 0,
     selfCount: 0,
+    selfProfit: 0,
+    selfRealizedProfit: 0,
     completed: 0,
     inProgress: 0,
     pending: 0,
@@ -182,6 +184,8 @@ export function getAnalytics(assignments = [], { from = null, to = null, basis =
 
     if (isSelf) {
       totals.selfCount += 1
+      totals.selfProfit += profit
+      if (a.clientPaidStatus) totals.selfRealizedProfit += profit
       continue
     }
 
@@ -212,7 +216,13 @@ export function getAnalytics(assignments = [], { from = null, to = null, basis =
     (a, b) => b.paid + b.owed - (a.paid + a.owed)
   )
 
-  return { totals, perSubcontractor, inRange }
+  const selfWork = {
+    count: totals.selfCount,
+    profitGenerated: totals.selfProfit,
+    realizedProfit: totals.selfRealizedProfit,
+  }
+
+  return { totals, perSubcontractor, selfWork, inRange }
 }
 
 export function isArchivedAssignment(a) {

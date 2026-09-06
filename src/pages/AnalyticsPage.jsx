@@ -106,14 +106,25 @@ export default function AnalyticsPage() {
     }
   }
 
-  const { totals, perSubcontractor } = useMemo(
+  const { totals, perSubcontractor, selfWork } = useMemo(
     () => getAnalytics(assignments, { from: from || null, to: to || null, basis }),
     [assignments, from, to, basis]
   )
 
-  const maxSubValue = useMemo(
-    () => Math.max(1, ...perSubcontractor.map((s) => s.paid + s.owed)),
+  const subProfitTotal = useMemo(
+    () => perSubcontractor.reduce((n, s) => n + s.profitGenerated, 0),
     [perSubcontractor]
+  )
+  const profitToYouTotal = subProfitTotal + (selfWork?.profitGenerated || 0)
+
+  const maxSubValue = useMemo(
+    () =>
+      Math.max(
+        1,
+        ...perSubcontractor.map((s) => s.paid + s.owed),
+        selfWork?.profitGenerated || 0
+      ),
+    [perSubcontractor, selfWork]
   )
 
   const rangeLabel =
@@ -309,26 +320,27 @@ export default function AnalyticsPage() {
               />
             </div>
 
-            {/* Per-subcontractor breakdown */}
+            {/* Profit breakdown: your work + subcontractors */}
             <div className="rounded-2xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 shadow-sm overflow-hidden">
-              <div className="flex items-center justify-between gap-3 px-5 py-4 border-b border-slate-200 dark:border-slate-700">
+              <div className="flex flex-wrap items-center justify-between gap-3 px-5 py-4 border-b border-slate-200 dark:border-slate-700">
                 <div className="flex items-center gap-2">
                   <Users size={17} className="text-indigo-500" />
-                  <h2 className="text-base font-bold text-slate-800 dark:text-slate-100">
-                    Subcontractor Payments
-                  </h2>
+                  <div>
+                    <h2 className="text-base font-bold text-slate-800 dark:text-slate-100">
+                      Profit by who did the work
+                    </h2>
+                    <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                      Includes your ME jobs and money paid to subcontractors
+                    </p>
+                  </div>
                 </div>
-                <span className="inline-flex items-center gap-1.5 text-xs text-slate-500 dark:text-slate-400">
-                  <UserCheck size={13} className="text-indigo-500" />
-                  {totals.selfCount} done by you ({selfName})
-                </span>
               </div>
 
-              {perSubcontractor.length === 0 ? (
+              {perSubcontractor.length === 0 && !(selfWork?.count > 0) ? (
                 <div className="py-14 text-center">
                   <Users size={34} className="mx-auto text-slate-300 dark:text-slate-600 mb-2" />
                   <p className="text-sm text-slate-500 dark:text-slate-400">
-                    No subcontractor payments in this range.
+                    No assignments in this range yet.
                   </p>
                 </div>
               ) : (
@@ -336,15 +348,51 @@ export default function AnalyticsPage() {
                   <table className="w-full border-collapse">
                     <thead>
                       <tr className="bg-slate-50 dark:bg-slate-700/50 border-b border-slate-200 dark:border-slate-700 text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
-                        <th className="px-5 py-3 text-left">Subcontractor</th>
+                        <th className="px-5 py-3 text-left">Who</th>
                         <th className="px-4 py-3 text-right">Jobs</th>
-                        <th className="px-4 py-3 text-right">Paid</th>
-                        <th className="px-4 py-3 text-right">Owed</th>
+                        <th className="px-4 py-3 text-right">Paid to them</th>
+                        <th className="px-4 py-3 text-right">Still owed</th>
                         <th className="px-4 py-3 text-right">Profit generated to you</th>
                         <th className="px-5 py-3 text-left w-40">Share</th>
                       </tr>
                     </thead>
                     <tbody>
+                      {selfWork?.count > 0 && (
+                        <tr className="border-b border-slate-100 dark:border-slate-700/50 bg-indigo-50/40 dark:bg-indigo-900/10">
+                          <td className="px-5 py-3">
+                            <div className="flex items-center gap-2.5">
+                              <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-indigo-100 dark:bg-indigo-900/40 text-indigo-700 dark:text-indigo-300 text-[11px] font-bold shrink-0">
+                                <UserCheck size={11} /> ME
+                              </span>
+                              <span className="text-sm font-semibold text-slate-800 dark:text-slate-100">
+                                {selfName}
+                              </span>
+                            </div>
+                          </td>
+                          <td className="px-4 py-3 text-right text-sm text-slate-600 dark:text-slate-300 tabular-nums">
+                            {selfWork.count}
+                          </td>
+                          <td className="px-4 py-3 text-right text-sm text-slate-400 tabular-nums">
+                            —
+                          </td>
+                          <td className="px-4 py-3 text-right text-sm text-slate-400 tabular-nums">
+                            —
+                          </td>
+                          <td className="px-4 py-3 text-right text-sm font-semibold text-indigo-600 dark:text-indigo-400 tabular-nums">
+                            {formatCurrency(selfWork.profitGenerated)}
+                          </td>
+                          <td className="px-5 py-3">
+                            <div className="h-2 rounded-full bg-slate-100 dark:bg-slate-700 overflow-hidden">
+                              <div
+                                className="h-full rounded-full bg-indigo-500"
+                                style={{
+                                  width: `${(selfWork.profitGenerated / maxSubValue) * 100}%`,
+                                }}
+                              />
+                            </div>
+                          </td>
+                        </tr>
+                      )}
                       {perSubcontractor.map((s) => (
                         <tr
                           key={s.name}
@@ -387,7 +435,8 @@ export default function AnalyticsPage() {
                       <tr className="bg-slate-50 dark:bg-slate-700/40 font-bold text-slate-700 dark:text-slate-200">
                         <td className="px-5 py-3 text-sm">Total</td>
                         <td className="px-4 py-3 text-right text-sm tabular-nums">
-                          {perSubcontractor.reduce((n, s) => n + s.count, 0)}
+                          {(selfWork?.count || 0) +
+                            perSubcontractor.reduce((n, s) => n + s.count, 0)}
                         </td>
                         <td className="px-4 py-3 text-right text-sm tabular-nums text-emerald-600 dark:text-emerald-400">
                           {formatCurrency(totals.paidToSubs)}
@@ -396,9 +445,7 @@ export default function AnalyticsPage() {
                           {formatCurrency(totals.owedToSubs)}
                         </td>
                         <td className="px-4 py-3 text-right text-sm tabular-nums text-indigo-600 dark:text-indigo-400">
-                          {formatCurrency(
-                            perSubcontractor.reduce((n, s) => n + s.profitGenerated, 0)
-                          )}
+                          {formatCurrency(profitToYouTotal)}
                         </td>
                         <td className="px-5 py-3" />
                       </tr>

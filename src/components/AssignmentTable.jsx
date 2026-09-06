@@ -30,17 +30,34 @@ function StatusBadge({ status }) {
   )
 }
 
-function PaidBadge({ paid, label }) {
+function PaidBadge({ paid, label, onToggle, disabled = false, title }) {
+  const classes = `inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold transition-all ${
+    paid
+      ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400'
+      : 'bg-rose-100 text-rose-700 dark:bg-rose-900/30 dark:text-rose-400'
+  }`
+
+  if (!onToggle) {
+    return (
+      <span className={classes}>
+        {paid ? '✓' : '✗'} {label}
+      </span>
+    )
+  }
+
   return (
-    <span
-      className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold ${
-        paid
-          ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400'
-          : 'bg-rose-100 text-rose-700 dark:bg-rose-900/30 dark:text-rose-400'
-      }`}
+    <button
+      type="button"
+      onClick={(e) => {
+        e.stopPropagation()
+        if (!disabled) onToggle()
+      }}
+      disabled={disabled}
+      title={title || `Click to mark as ${paid ? 'Unpaid' : 'Paid'}`}
+      className={`${classes} hover:ring-2 hover:ring-offset-1 hover:ring-slate-300 dark:hover:ring-slate-600 dark:hover:ring-offset-slate-800 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer`}
     >
       {paid ? '✓' : '✗'} {label}
-    </span>
+    </button>
   )
 }
 
@@ -137,12 +154,18 @@ function RowExpandedDetails({ a }) {
   )
 }
 
-function TableRow({ a, onEdit, onDelete, highlightUrgent }) {
+function TableRow({ a, onEdit, onDelete, onTogglePayment, togglingId, highlightUrgent }) {
   const [expanded, setExpanded] = useState(false)
   const overdue = highlightUrgent && isOverdue(a.dueDate, a.assignmentStatus)
   const completed = highlightUrgent && a.assignmentStatus === 'Completed'
   const urgent = highlightUrgent && isUrgentWarning(a.dueDate, a.assignmentStatus)
-  const profit = calcProfit(a.clientPrice, a.subcontractorPrice)
+  const isSelfAssigned = a.subcontractorIsSelf === true
+  const hasNoSubName = !(a.subcontractorName || '').trim()
+  const profit = calcProfit(
+    a.clientPrice,
+    isSelfAssigned ? 0 : a.subcontractorPrice
+  )
+  const isToggling = togglingId === a.id
 
   const rowBase = highlightUrgent
     ? completed
@@ -179,9 +202,11 @@ function TableRow({ a, onEdit, onDelete, highlightUrgent }) {
         <td className="px-4 py-3 min-w-[150px]">
           <p className="text-sm font-semibold text-slate-800 dark:text-slate-100">{a.clientName || '—'}</p>
           <p className="text-xs text-indigo-600 dark:text-indigo-400 font-mono font-medium">{a.moduleCode || '—'}</p>
-          {!a.subcontractorName?.trim() && (
+          {isSelfAssigned ? (
+            <p className="text-xs text-indigo-500/80 dark:text-indigo-400/70 mt-0.5 font-medium">Self / ME</p>
+          ) : hasNoSubName ? (
             <p className="text-xs text-slate-400 mt-0.5 italic">Unassigned</p>
-          )}
+          ) : null}
         </td>
 
         <td className="px-4 py-3 min-w-[120px]">
@@ -207,7 +232,7 @@ function TableRow({ a, onEdit, onDelete, highlightUrgent }) {
           )}
         </td>
 
-        <td className="px-4 py-3 min-w-[130px]">
+        <td className="px-4 py-3 min-w-[130px]" onClick={(e) => e.stopPropagation()}>
           <p className="text-sm font-semibold text-slate-800 dark:text-slate-100">
             {formatCurrency(a.clientPrice, { optional: true })}
           </p>
@@ -216,14 +241,47 @@ function TableRow({ a, onEdit, onDelete, highlightUrgent }) {
               Adv: {formatCurrency(a.clientAdvance)}
             </p>
           )}
-          <PaidBadge paid={a.clientPaidStatus} label={a.clientPaidStatus ? 'Paid' : 'Unpaid'} />
+          <div className="mt-1">
+            <PaidBadge
+              paid={a.clientPaidStatus}
+              label={a.clientPaidStatus ? 'Paid' : 'Unpaid'}
+              disabled={isToggling}
+              onToggle={
+                onTogglePayment
+                  ? () => onTogglePayment(a, 'clientPaidStatus')
+                  : undefined
+              }
+            />
+          </div>
         </td>
 
-        <td className="px-4 py-3 min-w-[130px]">
-          <p className="text-sm font-semibold text-slate-800 dark:text-slate-100">
-            {formatCurrency(a.subcontractorPrice, { optional: true })}
-          </p>
-          <PaidBadge paid={a.subcontractorPaidStatus} label={a.subcontractorPaidStatus ? 'Paid' : 'Unpaid'} />
+        <td className="px-4 py-3 min-w-[130px]" onClick={(e) => e.stopPropagation()}>
+          {isSelfAssigned ? (
+            <>
+              <p className="text-sm font-semibold text-slate-500 dark:text-slate-400">—</p>
+              <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-300 mt-1">
+                Self · no payout
+              </span>
+            </>
+          ) : (
+            <>
+              <p className="text-sm font-semibold text-slate-800 dark:text-slate-100">
+                {formatCurrency(a.subcontractorPrice, { optional: true })}
+              </p>
+              <div className="mt-1">
+                <PaidBadge
+                  paid={a.subcontractorPaidStatus}
+                  label={a.subcontractorPaidStatus ? 'Paid' : 'Unpaid'}
+                  disabled={isToggling || hasNoSubName}
+                  onToggle={
+                    onTogglePayment && !hasNoSubName
+                      ? () => onTogglePayment(a, 'subcontractorPaidStatus')
+                      : undefined
+                  }
+                />
+              </div>
+            </>
+          )}
         </td>
 
         <td className="px-4 py-3 min-w-[100px]">
@@ -271,7 +329,14 @@ function TableRow({ a, onEdit, onDelete, highlightUrgent }) {
   )
 }
 
-export default function AssignmentTable({ assignments, onEdit, onDelete, activeTab = 'active' }) {
+export default function AssignmentTable({
+  assignments,
+  onEdit,
+  onDelete,
+  onTogglePayment,
+  togglingId = null,
+  activeTab = 'active',
+}) {
   const highlightUrgent = activeTab === 'urgent'
 
   if (assignments.length === 0) {
@@ -323,6 +388,8 @@ export default function AssignmentTable({ assignments, onEdit, onDelete, activeT
                 a={a}
                 onEdit={onEdit}
                 onDelete={onDelete}
+                onTogglePayment={onTogglePayment}
+                togglingId={togglingId}
                 highlightUrgent={highlightUrgent}
               />
             ))}
@@ -352,7 +419,7 @@ export default function AssignmentTable({ assignments, onEdit, onDelete, activeT
           </span>
         ) : (
           <span className="text-slate-400 dark:text-slate-500">
-            Standard view — switch to Urgent tab for due-date highlights
+            Click Paid / Unpaid badges to toggle · switch to Urgent for due-date highlights
           </span>
         )}
         <span className="flex items-center gap-1.5 ml-auto text-slate-300 dark:text-slate-600">

@@ -65,6 +65,7 @@ export default function DashboardPage() {
   const [showForm, setShowForm] = useState(false)
   const [editingAssignment, setEditingAssignment] = useState(null)
   const [deleteId, setDeleteId] = useState(null)
+  const [togglingId, setTogglingId] = useState(null)
   const [showResetConfirm, setShowResetConfirm] = useState(false)
   const [showSettledConfirm, setShowSettledConfirm] = useState(false)
   const [seasonToDelete, setSeasonToDelete] = useState(null)
@@ -237,6 +238,26 @@ export default function DashboardPage() {
   function handleEdit(assignment) {
     setEditingAssignment(assignment)
     setShowForm(true)
+  }
+
+  async function handleTogglePayment(assignment, field) {
+    if (!assignment?.id || togglingId) return
+    if (field !== 'clientPaidStatus' && field !== 'subcontractorPaidStatus') return
+
+    setTogglingId(assignment.id)
+    setError(null)
+    try {
+      const saved = await updateAssignment({
+        ...assignment,
+        [field]: !assignment[field],
+        updatedAt: new Date().toISOString(),
+      })
+      setAssignments((prev) => prev.map((a) => (a.id === saved.id ? saved : a)))
+    } catch (err) {
+      setError(err.message || 'Failed to update payment status')
+    } finally {
+      setTogglingId(null)
+    }
   }
 
   function handleDeleteRequest(id) {
@@ -511,6 +532,8 @@ export default function DashboardPage() {
               activeTab={activeTab}
               onEdit={handleEdit}
               onDelete={handleDeleteRequest}
+              onTogglePayment={handleTogglePayment}
+              togglingId={togglingId}
             />
 
             <p className="text-center text-xs text-slate-400 dark:text-slate-600 pb-4">
