@@ -340,7 +340,7 @@ export default function AnalyticsPage() {
                         <th className="px-4 py-3 text-right">Jobs</th>
                         <th className="px-4 py-3 text-right">Paid</th>
                         <th className="px-4 py-3 text-right">Owed</th>
-                        <th className="px-4 py-3 text-right">Profit generated</th>
+                        <th className="px-4 py-3 text-right">Profit generated to you</th>
                         <th className="px-5 py-3 text-left w-40">Share</th>
                       </tr>
                     </thead>
@@ -395,7 +395,12 @@ export default function AnalyticsPage() {
                         <td className="px-4 py-3 text-right text-sm tabular-nums text-amber-600 dark:text-amber-400">
                           {formatCurrency(totals.owedToSubs)}
                         </td>
-                        <td className="px-4 py-3" colSpan={2} />
+                        <td className="px-4 py-3 text-right text-sm tabular-nums text-indigo-600 dark:text-indigo-400">
+                          {formatCurrency(
+                            perSubcontractor.reduce((n, s) => n + s.profitGenerated, 0)
+                          )}
+                        </td>
+                        <td className="px-5 py-3" />
                       </tr>
                     </tfoot>
                   </table>
