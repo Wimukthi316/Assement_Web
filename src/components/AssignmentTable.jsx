@@ -8,7 +8,7 @@ import {
   isUrgentWarning,
   daysUntilDue,
 } from '../utils/helpers.js'
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 
 function StatusBadge({ status }) {
   const map = {
@@ -30,7 +30,33 @@ function StatusBadge({ status }) {
   )
 }
 
-function PaidBadge({ paid, label, onToggle, disabled = false, title }) {
+/**
+ * Paid/Unpaid badge with a tiny confirm popover so an accidental click
+ * cannot flip the status. First click opens the menu; Confirm applies it.
+ */
+function PaidBadge({ paid, label, onToggle, disabled = false, kind = 'client' }) {
+  const [open, setOpen] = useState(false)
+  const wrapRef = useRef(null)
+  const nextPaid = !paid
+  const nextLabel = nextPaid ? 'Paid' : 'Unpaid'
+  const kindLabel = kind === 'sub' ? 'subcontractor' : 'client'
+
+  useEffect(() => {
+    if (!open) return
+    function onDoc(e) {
+      if (wrapRef.current && !wrapRef.current.contains(e.target)) setOpen(false)
+    }
+    function onKey(e) {
+      if (e.key === 'Escape') setOpen(false)
+    }
+    document.addEventListener('mousedown', onDoc)
+    document.addEventListener('keydown', onKey)
+    return () => {
+      document.removeEventListener('mousedown', onDoc)
+      document.removeEventListener('keydown', onKey)
+    }
+  }, [open])
+
   const classes = `inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold transition-all ${
     paid
       ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400'
@@ -46,18 +72,61 @@ function PaidBadge({ paid, label, onToggle, disabled = false, title }) {
   }
 
   return (
-    <button
-      type="button"
-      onClick={(e) => {
-        e.stopPropagation()
-        if (!disabled) onToggle()
-      }}
-      disabled={disabled}
-      title={title || `Click to mark as ${paid ? 'Unpaid' : 'Paid'}`}
-      className={`${classes} hover:ring-2 hover:ring-offset-1 hover:ring-slate-300 dark:hover:ring-slate-600 dark:hover:ring-offset-slate-800 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer`}
-    >
-      {paid ? '✓' : '✗'} {label}
-    </button>
+    <div ref={wrapRef} className="relative inline-block mt-1">
+      <button
+        type="button"
+        onClick={(e) => {
+          e.stopPropagation()
+          if (!disabled) setOpen((v) => !v)
+        }}
+        disabled={disabled}
+        title={`Change ${kindLabel} payment status`}
+        aria-haspopup="dialog"
+        aria-expanded={open}
+        className={`${classes} hover:ring-2 hover:ring-offset-1 hover:ring-slate-300 dark:hover:ring-slate-600 dark:hover:ring-offset-slate-800 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer`}
+      >
+        {paid ? '✓' : '✗'} {label}
+      </button>
+
+      {open && (
+        <div
+          role="dialog"
+          onClick={(e) => e.stopPropagation()}
+          className="absolute z-30 left-0 top-full mt-1.5 w-48 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 shadow-xl p-2.5"
+        >
+          <p className="text-[11px] text-slate-500 dark:text-slate-400 px-1 mb-2 leading-snug">
+            Mark this {kindLabel} as{' '}
+            <span className={`font-bold ${nextPaid ? 'text-emerald-600 dark:text-emerald-400' : 'text-amber-600 dark:text-amber-400'}`}>
+              {nextLabel}
+            </span>
+            ?
+          </p>
+          <div className="flex gap-1.5">
+            <button
+              type="button"
+              onClick={() => setOpen(false)}
+              className="flex-1 h-8 rounded-lg text-xs font-medium bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-600 transition-colors"
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setOpen(false)
+                onToggle()
+              }}
+              className={`flex-1 h-8 rounded-lg text-xs font-semibold text-white transition-colors ${
+                nextPaid
+                  ? 'bg-emerald-600 hover:bg-emerald-700'
+                  : 'bg-amber-500 hover:bg-amber-600'
+              }`}
+            >
+              Confirm
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
   )
 }
 
@@ -241,18 +310,17 @@ function TableRow({ a, onEdit, onDelete, onTogglePayment, togglingId, highlightU
               Adv: {formatCurrency(a.clientAdvance)}
             </p>
           )}
-          <div className="mt-1">
-            <PaidBadge
-              paid={a.clientPaidStatus}
-              label={a.clientPaidStatus ? 'Paid' : 'Unpaid'}
-              disabled={isToggling}
-              onToggle={
-                onTogglePayment
-                  ? () => onTogglePayment(a, 'clientPaidStatus')
-                  : undefined
-              }
-            />
-          </div>
+          <PaidBadge
+            paid={a.clientPaidStatus}
+            label={a.clientPaidStatus ? 'Paid' : 'Unpaid'}
+            kind="client"
+            disabled={isToggling}
+            onToggle={
+              onTogglePayment
+                ? () => onTogglePayment(a, 'clientPaidStatus')
+                : undefined
+            }
+          />
         </td>
 
         <td className="px-4 py-3 min-w-[130px]" onClick={(e) => e.stopPropagation()}>
@@ -268,18 +336,17 @@ function TableRow({ a, onEdit, onDelete, onTogglePayment, togglingId, highlightU
               <p className="text-sm font-semibold text-slate-800 dark:text-slate-100">
                 {formatCurrency(a.subcontractorPrice, { optional: true })}
               </p>
-              <div className="mt-1">
-                <PaidBadge
-                  paid={a.subcontractorPaidStatus}
-                  label={a.subcontractorPaidStatus ? 'Paid' : 'Unpaid'}
-                  disabled={isToggling || hasNoSubName}
-                  onToggle={
-                    onTogglePayment && !hasNoSubName
-                      ? () => onTogglePayment(a, 'subcontractorPaidStatus')
-                      : undefined
-                  }
-                />
-              </div>
+              <PaidBadge
+                paid={a.subcontractorPaidStatus}
+                label={a.subcontractorPaidStatus ? 'Paid' : 'Unpaid'}
+                kind="sub"
+                disabled={isToggling || hasNoSubName}
+                onToggle={
+                  onTogglePayment && !hasNoSubName
+                    ? () => onTogglePayment(a, 'subcontractorPaidStatus')
+                    : undefined
+                }
+              />
             </>
           )}
         </td>
@@ -419,7 +486,7 @@ export default function AssignmentTable({
           </span>
         ) : (
           <span className="text-slate-400 dark:text-slate-500">
-            Click Paid / Unpaid badges to toggle · switch to Urgent for due-date highlights
+            Tap Paid / Unpaid → Confirm to change · switch to Urgent for due-date highlights
           </span>
         )}
         <span className="flex items-center gap-1.5 ml-auto text-slate-300 dark:text-slate-600">
