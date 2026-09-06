@@ -45,6 +45,16 @@ export async function getAssignmentsCollection() {
   return client.db('assigntrack').collection('assignments')
 }
 
+export async function getSubcontractorsCollection() {
+  const promise = getClientPromise()
+  if (!promise) {
+    throw new Error('MONGODB_NOT_CONFIGURED')
+  }
+
+  const client = await promise
+  return client.db('assigntrack').collection('subcontractors')
+}
+
 export function sanitizeAssignment(doc) {
   if (!doc) return null
   const { _id, ...rest } = doc

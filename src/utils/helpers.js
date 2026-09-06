@@ -109,6 +109,112 @@ export function calcSummary(assignments) {
   )
 }
 
+// --- Analytics ---
+/**
+ * Which calendar date an assignment "belongs to" for range filtering.
+ * Prefers the date the work was received, then due date, then created time.
+ */
+export function analyticsDate(a, basis = 'dateReceived') {
+  const raw =
+    basis === 'dueDate'
+      ? a?.dueDate || a?.dateReceived || a?.createdAt
+      : a?.dateReceived || a?.createdAt || a?.dueDate
+  if (!raw) return null
+  const d = new Date(raw)
+  return isNaN(d) ? null : d
+}
+
+function withinRange(date, from, to) {
+  if (!date) return false
+  if (from && date < from) return false
+  if (to && date > to) return false
+  return true
+}
+
+/**
+ * Build a full analytics snapshot for a date range.
+ *
+ * @param assignments full list (current + archived)
+ * @param opts { from: 'YYYY-MM-DD'|null, to: 'YYYY-MM-DD'|null, basis }
+ * @returns totals, status breakdown, and a per-subcontractor payout table.
+ */
+export function getAnalytics(assignments = [], { from = null, to = null, basis = 'dateReceived' } = {}) {
+  const fromDate = from ? new Date(`${from}T00:00:00`) : null
+  const toDate = to ? new Date(`${to}T23:59:59.999`) : null
+
+  const inRange = assignments.filter((a) => withinRange(analyticsDate(a, basis), fromDate, toDate))
+
+  const totals = {
+    count: inRange.length,
+    expectedProfit: 0,
+    realizedProfit: 0,
+    clientRevenue: 0,
+    clientCollected: 0,
+    clientPending: 0,
+    paidToSubs: 0,
+    owedToSubs: 0,
+    selfCount: 0,
+    completed: 0,
+    inProgress: 0,
+    pending: 0,
+  }
+
+  const subMap = new Map()
+
+  for (const a of inRange) {
+    const clientPrice = parseFloat(a.clientPrice) || 0
+    const subPrice = parseFloat(a.subcontractorPrice) || 0
+    const isSelf = getSubcontractorSettlement(a) === 'self'
+    const profit = calcProfit(clientPrice, isSelf ? 0 : subPrice)
+
+    totals.expectedProfit += profit
+    totals.clientRevenue += clientPrice
+    if (a.clientPaidStatus) {
+      totals.realizedProfit += profit
+      totals.clientCollected += clientPrice
+    } else {
+      totals.clientPending += calcClientOwes(clientPrice, a.clientAdvance, a.clientPaidStatus)
+    }
+
+    if (a.assignmentStatus === 'Completed') totals.completed += 1
+    else if (a.assignmentStatus === 'In Progress') totals.inProgress += 1
+    else totals.pending += 1
+
+    if (isSelf) {
+      totals.selfCount += 1
+      continue
+    }
+
+    if (a.subcontractorPaidStatus) totals.paidToSubs += subPrice
+    else totals.owedToSubs += subPrice
+
+    const name = (a.subcontractorName || '').trim() || 'Unnamed'
+    const key = name.toLowerCase()
+    if (!subMap.has(key)) {
+      subMap.set(key, {
+        name,
+        count: 0,
+        totalPriced: 0,
+        paid: 0,
+        owed: 0,
+        profitGenerated: 0,
+      })
+    }
+    const row = subMap.get(key)
+    row.count += 1
+    row.totalPriced += subPrice
+    if (a.subcontractorPaidStatus) row.paid += subPrice
+    else row.owed += subPrice
+    row.profitGenerated += profit
+  }
+
+  const perSubcontractor = [...subMap.values()].sort(
+    (a, b) => b.paid + b.owed - (a.paid + a.owed)
+  )
+
+  return { totals, perSubcontractor, inRange }
+}
+
 export function isArchivedAssignment(a) {
   return a?.isArchived === true
 }

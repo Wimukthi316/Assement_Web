@@ -9,13 +9,17 @@
 
 /**
  * Where the subcontractor side of an assignment stands.
- *   'self'    - no name and no price: the owner did the job themselves,
- *               so there is nothing to pay out.
+ *   'self'    - the owner did the job themselves (explicit "ME" / self-assigned,
+ *               or simply no name and no price), so there is nothing to pay out.
  *   'noPrice' - a subcontractor is named but their price has not been set yet.
  *   'paid'    - subcontractor has been paid.
  *   'unpaid'  - money is owed to a subcontractor.
  */
 export function getSubcontractorSettlement(a) {
+  // Explicit self-assignment ("ME"): the owner keeps 100% of the profit and
+  // owes no payout, so it is settled regardless of any leftover price value.
+  if (a?.subcontractorIsSelf === true) return 'self'
+
   const price = parseFloat(a?.subcontractorPrice) || 0
   const hasName = Boolean((a?.subcontractorName || '').trim())
 

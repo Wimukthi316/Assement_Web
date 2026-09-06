@@ -32,6 +32,16 @@ async function handler(req, res) {
       updates.subcontractorPaidStatus = Boolean(updates.subcontractorPaidStatus)
     }
 
+    // Self-assigned ("ME"): owner keeps full profit and owes no payout, so the
+    // subcontractor side is always a settled, zero-cost state.
+    if (updates.subcontractorIsSelf !== undefined) {
+      updates.subcontractorIsSelf = Boolean(updates.subcontractorIsSelf)
+      if (updates.subcontractorIsSelf) {
+        updates.subcontractorPrice = 0
+        updates.subcontractorPaidStatus = true
+      }
+    }
+
     const collection = await getAssignmentsCollection()
     const result = await collection.findOneAndUpdate(
       { id, userId: req.user.uid },

@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react'
-import { Plus, RotateCcw, PackageCheck } from 'lucide-react'
+import { Plus, RotateCcw, PackageCheck, Users } from 'lucide-react'
 import {
   calcSummary,
   applyFilters,
@@ -21,6 +21,9 @@ import {
   resetSeason,
   archiveSettled,
   deleteSeason,
+  fetchSubcontractors,
+  createSubcontractor,
+  deleteSubcontractor,
 } from '../services/api.js'
 import Header from '../components/Header.jsx'
 import SummaryCards from '../components/SummaryCards.jsx'
@@ -29,6 +32,7 @@ import SeasonPicker from '../components/SeasonPicker.jsx'
 import FilterBar from '../components/FilterBar.jsx'
 import AssignmentTable from '../components/AssignmentTable.jsx'
 import AssignmentForm from '../components/AssignmentForm.jsx'
+import SubcontractorManager from '../components/SubcontractorManager.jsx'
 import ConfirmDialog from '../components/ConfirmDialog.jsx'
 import { LoadingState, ErrorBanner } from '../components/StatusMessages.jsx'
 import { useAuth } from '../context/AuthContext.jsx'
@@ -44,7 +48,10 @@ const DEFAULT_SORT = { key: 'dueDate', dir: 'asc' }
 
 export default function DashboardPage() {
   const { user } = useAuth()
+  const selfName = user?.displayName || user?.email?.split('@')[0] || 'Me'
   const [assignments, setAssignments] = useState([])
+  const [subcontractors, setSubcontractors] = useState([])
+  const [showSubManager, setShowSubManager] = useState(false)
 
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
@@ -84,6 +91,35 @@ export default function DashboardPage() {
     if (!user) return
     loadAssignments()
   }, [user, loadAssignments])
+
+  const loadSubcontractors = useCallback(async () => {
+    if (!user) return
+    try {
+      const data = await fetchSubcontractors()
+      setSubcontractors(Array.isArray(data) ? data : [])
+    } catch {
+      // Non-fatal: the dropdown still works with ME + inline add.
+    }
+  }, [user])
+
+  useEffect(() => {
+    if (!user) return
+    loadSubcontractors()
+  }, [user, loadSubcontractors])
+
+  const handleCreateSubcontractor = useCallback(async (name) => {
+    const created = await createSubcontractor(name)
+    setSubcontractors((prev) => {
+      if (prev.some((s) => s.id === created.id)) return prev
+      return [...prev, created].sort((a, b) => a.name.localeCompare(b.name))
+    })
+    return created
+  }, [])
+
+  const handleDeleteSubcontractor = useCallback(async (id) => {
+    await deleteSubcontractor(id)
+    setSubcontractors((prev) => prev.filter((s) => s.id !== id))
+  }, [])
 
   useEffect(() => {
     if (!user) return
@@ -403,6 +439,18 @@ export default function DashboardPage() {
                 </p>
               </div>
               <div className="flex flex-wrap items-center gap-2">
+                <button
+                  onClick={() => setShowSubManager(true)}
+                  disabled={saving}
+                  className="flex items-center gap-2 px-4 py-2.5 text-sm font-semibold rounded-xl bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                  title="Manage your saved subcontractor names"
+                >
+                  <Users size={16} />
+                  <span className="hidden sm:inline">Subcontractors</span>
+                  <span className="min-w-[1.25rem] px-1.5 py-0.5 rounded-full text-xs font-bold tabular-nums bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-400">
+                    {subcontractors.length}
+                  </span>
+                </button>
                 {!isHistoryTab && (
                   <>
                     <button
@@ -464,6 +512,19 @@ export default function DashboardPage() {
           onSave={handleSave}
           onClose={closeForm}
           saving={saving}
+          subcontractors={subcontractors}
+          onCreateSubcontractor={handleCreateSubcontractor}
+          selfName={selfName}
+        />
+      )}
+
+      {showSubManager && (
+        <SubcontractorManager
+          subcontractors={subcontractors}
+          selfName={selfName}
+          onCreate={handleCreateSubcontractor}
+          onDelete={handleDeleteSubcontractor}
+          onClose={() => setShowSubManager(false)}
         />
       )}
 

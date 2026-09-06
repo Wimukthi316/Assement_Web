@@ -99,3 +99,21 @@ export async function deleteSeason(seasonId) {
     method: 'DELETE',
   })
 }
+
+// --- Subcontractors (saved "address book" of names) ---
+export async function fetchSubcontractors() {
+  return request('/subcontractors')
+}
+
+export async function createSubcontractor(name) {
+  return request('/subcontractors', {
+    method: 'POST',
+    body: JSON.stringify({ name }),
+  })
+}
+
+export async function deleteSubcontractor(id) {
+  return request(`/subcontractors?id=${encodeURIComponent(id)}`, {
+    method: 'DELETE',
+  })
+}

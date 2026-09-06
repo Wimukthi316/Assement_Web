@@ -1,4 +1,5 @@
-import { Download, Upload, FileJson, FileText, BookOpen, LogOut, User } from 'lucide-react'
+import { Download, Upload, FileJson, FileText, BookOpen, LogOut, User, BarChart3 } from 'lucide-react'
+import { Link } from 'react-router-dom'
 import { exportJSON, exportCSV } from '../utils/helpers.js'
 import { useState, useRef } from 'react'
 import { useAuth } from '../context/AuthContext.jsx'
@@ -64,6 +65,14 @@ export default function Header({ assignments, onImport, disabled = false }) {
             className="hidden"
             onChange={handleImport}
           />
+          <Link
+            to="/analytics"
+            className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-lg text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 border border-indigo-200 dark:border-indigo-800 transition-colors"
+            title="View analytics"
+          >
+            <BarChart3 size={15} />
+            <span className="hidden sm:inline">Analytics</span>
+          </Link>
           <button
             onClick={() => fileInputRef.current?.click()}
             disabled={disabled}

@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
-import { X, Save, Plus, Calculator } from 'lucide-react'
+import { X, Save, Plus, Calculator, UserCheck } from 'lucide-react'
 import { generateId, calcProfit, formatCurrency } from '../utils/helpers.js'
+import SubcontractorSelect from './SubcontractorSelect.jsx'
 
 const EMPTY_FORM = {
   dateReceived: '',
@@ -11,6 +12,7 @@ const EMPTY_FORM = {
   clientAdvance: '',
   clientPaidStatus: false,
   subcontractorName: '',
+  subcontractorIsSelf: false,
   subcontractorPrice: '',
   subcontractorPaidStatus: false,
   assignmentStatus: 'Pending',
@@ -87,7 +89,15 @@ function PaymentStatusControl({ value, onChange, paidTone = 'emerald' }) {
 const inputClass =
   'w-full h-10 px-3 text-sm rounded-xl bg-slate-50 dark:bg-slate-700/50 border border-slate-200 dark:border-slate-600 text-slate-800 dark:text-slate-100 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-500'
 
-export default function AssignmentForm({ assignment, onSave, onClose, saving = false }) {
+export default function AssignmentForm({
+  assignment,
+  onSave,
+  onClose,
+  saving = false,
+  subcontractors = [],
+  onCreateSubcontractor,
+  selfName = 'Me',
+}) {
   const isEdit = !!assignment
   const [form, setForm] = useState(isEdit ? toFormValues(assignment) : { ...EMPTY_FORM })
   const [errors, setErrors] = useState({})
@@ -135,12 +145,16 @@ export default function AssignmentForm({ assignment, onSave, onClose, saving = f
       setErrors(errs)
       return
     }
+    const isSelf = Boolean(form.subcontractorIsSelf)
     const record = {
       ...form,
       id: isEdit ? form.id : generateId(),
       clientPrice: form.clientPrice === '' ? 0 : parseFloat(form.clientPrice) || 0,
       clientAdvance: form.clientAdvance === '' ? 0 : parseFloat(form.clientAdvance) || 0,
-      subcontractorPrice: form.subcontractorPrice === '' ? 0 : parseFloat(form.subcontractorPrice) || 0,
+      subcontractorIsSelf: isSelf,
+      // Self-assigned ("ME"): keep 100% of the profit, no payout owed.
+      subcontractorPrice: isSelf ? 0 : form.subcontractorPrice === '' ? 0 : parseFloat(form.subcontractorPrice) || 0,
+      subcontractorPaidStatus: isSelf ? true : Boolean(form.subcontractorPaidStatus),
       subcontractorName: form.subcontractorName?.trim() || '',
       createdAt: isEdit ? form.createdAt : new Date().toISOString(),
       updatedAt: new Date().toISOString(),
@@ -324,38 +338,71 @@ export default function AssignmentForm({ assignment, onSave, onClose, saving = f
               </p>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <Field label="Subcontractor Name">
-                  <input
-                    className={inputClass}
-                    placeholder="Leave blank if self-assigned"
+                  <SubcontractorSelect
                     value={form.subcontractorName}
-                    onChange={(e) => set('subcontractorName', e.target.value)}
-                  />
-                </Field>
-
-                <Field label="Subcontractor Price (LKR)">
-                  <input
-                    type="number"
-                    min="0"
-                    step="0.01"
-                    className={`${inputClass} ${errors.subcontractorPrice ? 'border-rose-400 focus:ring-rose-500/50' : ''}`}
-                    placeholder="Leave blank if TBD"
-                    value={form.subcontractorPrice}
-                    onChange={(e) => set('subcontractorPrice', e.target.value)}
-                  />
-                  {errors.subcontractorPrice && (
-                    <p className="text-xs text-rose-500 mt-1">{errors.subcontractorPrice}</p>
-                  )}
-                </Field>
-
-                <Field label="Sub Payment Status">
-                  <PaymentStatusControl
-                    value={form.subcontractorPaidStatus}
-                    onChange={(paid) => set('subcontractorPaidStatus', paid)}
+                    isSelf={form.subcontractorIsSelf}
+                    selfName={selfName}
+                    subcontractors={subcontractors}
+                    onCreate={onCreateSubcontractor}
+                    onChange={({ name, isSelf }) => {
+                      setForm((f) => ({
+                        ...f,
+                        subcontractorName: name,
+                        subcontractorIsSelf: isSelf,
+                        ...(isSelf
+                          ? { subcontractorPrice: '', subcontractorPaidStatus: true }
+                          : {}),
+                      }))
+                    }}
                   />
                   <p className="text-[11px] text-slate-400 mt-1.5">
-                    Default is Unpaid. Tap Paid after you pay the subcontractor.
+                    Pick <span className="font-semibold">ME</span> if you do it yourself, or add a
+                    subcontractor to your list.
                   </p>
                 </Field>
+
+                {form.subcontractorIsSelf ? (
+                  <div className="flex items-center gap-3 p-3 rounded-xl bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-100 dark:border-indigo-800/50">
+                    <div className="w-9 h-9 rounded-lg bg-indigo-100 dark:bg-indigo-900/40 flex items-center justify-center shrink-0">
+                      <UserCheck size={18} className="text-indigo-600 dark:text-indigo-400" />
+                    </div>
+                    <div>
+                      <p className="text-sm font-semibold text-indigo-800 dark:text-indigo-200">
+                        Self-assigned
+                      </p>
+                      <p className="text-xs text-indigo-600/80 dark:text-indigo-300/70">
+                        No payout — you keep 100% of the profit.
+                      </p>
+                    </div>
+                  </div>
+                ) : (
+                  <>
+                    <Field label="Subcontractor Price (LKR)">
+                      <input
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        className={`${inputClass} ${errors.subcontractorPrice ? 'border-rose-400 focus:ring-rose-500/50' : ''}`}
+                        placeholder="Leave blank if TBD"
+                        value={form.subcontractorPrice}
+                        onChange={(e) => set('subcontractorPrice', e.target.value)}
+                      />
+                      {errors.subcontractorPrice && (
+                        <p className="text-xs text-rose-500 mt-1">{errors.subcontractorPrice}</p>
+                      )}
+                    </Field>
+
+                    <Field label="Sub Payment Status">
+                      <PaymentStatusControl
+                        value={form.subcontractorPaidStatus}
+                        onChange={(paid) => set('subcontractorPaidStatus', paid)}
+                      />
+                      <p className="text-[11px] text-slate-400 mt-1.5">
+                        Default is Unpaid. Tap Paid after you pay the subcontractor.
+                      </p>
+                    </Field>
+                  </>
+                )}
               </div>
             </section>
 

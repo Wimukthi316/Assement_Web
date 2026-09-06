@@ -21,6 +21,10 @@ async function handler(req, res) {
     }
 
     const now = new Date().toISOString()
+    // Self-assigned ("ME"): owner keeps full profit, owes no payout — force the
+    // subcontractor side to a settled, zero-cost state so it can never block
+    // archiving or distort the "you owe subs" totals.
+    const isSelf = Boolean(body.subcontractorIsSelf)
     const record = {
       id: body.id || randomUUID(),
       userId: req.user.uid,
@@ -31,9 +35,10 @@ async function handler(req, res) {
       clientPrice: parseFloat(body.clientPrice) || 0,
       clientAdvance: parseFloat(body.clientAdvance) || 0,
       clientPaidStatus: Boolean(body.clientPaidStatus),
-      subcontractorName: body.subcontractorName || '',
-      subcontractorPrice: parseFloat(body.subcontractorPrice) || 0,
-      subcontractorPaidStatus: Boolean(body.subcontractorPaidStatus),
+      subcontractorIsSelf: isSelf,
+      subcontractorName: isSelf ? (body.subcontractorName || '').trim() : (body.subcontractorName || ''),
+      subcontractorPrice: isSelf ? 0 : parseFloat(body.subcontractorPrice) || 0,
+      subcontractorPaidStatus: isSelf ? true : Boolean(body.subcontractorPaidStatus),
       assignmentStatus: body.assignmentStatus || 'Pending',
       notes: body.notes || '',
       isArchived: false,
