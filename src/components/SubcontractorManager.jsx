@@ -1,15 +1,15 @@
 import { useEffect, useRef, useState } from 'react'
-import { X, Plus, Trash2, Users, UserCheck, Loader2, Search } from 'lucide-react'
+import { X, Plus, Trash2, Users, UserCheck, Loader2, Search, Pencil, Check } from 'lucide-react'
 
 /**
  * Dedicated place to manage the saved subcontractor "address book".
- * Add new names, see them all, and remove ones you no longer use.
- * "ME" is shown pinned at the top (it comes from your account and can't be removed).
+ * Add, rename, or remove names. "ME" is pinned (from your account).
  */
 export default function SubcontractorManager({
   subcontractors = [],
   selfName = 'Me',
   onCreate,
+  onUpdate,
   onDelete,
   onClose,
 }) {
@@ -17,12 +17,23 @@ export default function SubcontractorManager({
   const [query, setQuery] = useState('')
   const [adding, setAdding] = useState(false)
   const [deletingId, setDeletingId] = useState(null)
+  const [editingId, setEditingId] = useState(null)
+  const [editName, setEditName] = useState('')
+  const [savingId, setSavingId] = useState(null)
   const [error, setError] = useState(null)
   const inputRef = useRef(null)
+  const editInputRef = useRef(null)
 
   useEffect(() => {
     function onKey(e) {
-      if (e.key === 'Escape') onClose()
+      if (e.key === 'Escape') {
+        if (editingId) {
+          setEditingId(null)
+          setEditName('')
+          return
+        }
+        onClose()
+      }
     }
     document.addEventListener('keydown', onKey)
     const prev = document.body.style.overflow
@@ -33,7 +44,17 @@ export default function SubcontractorManager({
       document.body.style.overflow = prev
       clearTimeout(t)
     }
-  }, [onClose])
+  }, [onClose, editingId])
+
+  useEffect(() => {
+    if (editingId) {
+      const t = setTimeout(() => {
+        editInputRef.current?.focus()
+        editInputRef.current?.select()
+      }, 20)
+      return () => clearTimeout(t)
+    }
+  }, [editingId])
 
   const q = query.trim().toLowerCase()
   const filtered = q
@@ -57,7 +78,46 @@ export default function SubcontractorManager({
     }
   }
 
+  function startEdit(s) {
+    setError(null)
+    setEditingId(s.id)
+    setEditName(s.name)
+  }
+
+  function cancelEdit() {
+    setEditingId(null)
+    setEditName('')
+  }
+
+  async function handleSaveEdit(e) {
+    e?.preventDefault()
+    if (!editingId || savingId) return
+    const trimmed = editName.trim()
+    if (!trimmed) {
+      setError('Name is required')
+      return
+    }
+
+    const current = subcontractors.find((s) => s.id === editingId)
+    if (current && current.name.trim().toLowerCase() === trimmed.toLowerCase()) {
+      cancelEdit()
+      return
+    }
+
+    setSavingId(editingId)
+    setError(null)
+    try {
+      await onUpdate?.(editingId, trimmed)
+      cancelEdit()
+    } catch (err) {
+      setError(err?.message || 'Could not rename subcontractor')
+    } finally {
+      setSavingId(null)
+    }
+  }
+
   async function handleDelete(id) {
+    if (editingId === id) cancelEdit()
     setDeletingId(id)
     setError(null)
     try {
@@ -163,34 +223,83 @@ export default function SubcontractorManager({
             </div>
           ) : (
             <ul className="divide-y divide-slate-100 dark:divide-slate-700/60">
-              {filtered.map((s) => (
-                <li key={s.id} className="flex items-center gap-3 py-2.5">
-                  <span className="w-7 h-7 rounded-lg bg-slate-100 dark:bg-slate-700 flex items-center justify-center shrink-0 text-xs font-bold text-slate-500 dark:text-slate-300 uppercase">
-                    {s.name.charAt(0)}
-                  </span>
-                  <span className="flex-1 text-sm text-slate-700 dark:text-slate-200 truncate">{s.name}</span>
-                  <button
-                    type="button"
-                    onClick={() => handleDelete(s.id)}
-                    disabled={deletingId === s.id}
-                    className="w-8 h-8 flex items-center justify-center rounded-lg text-slate-400 hover:bg-rose-50 dark:hover:bg-rose-900/30 hover:text-rose-600 dark:hover:text-rose-400 transition-colors disabled:opacity-50"
-                    title="Remove"
-                  >
-                    {deletingId === s.id ? (
-                      <Loader2 size={14} className="animate-spin" />
+              {filtered.map((s) => {
+                const isEditing = editingId === s.id
+                const isSaving = savingId === s.id
+
+                return (
+                  <li key={s.id} className="flex items-center gap-2 py-2.5">
+                    <span className="w-7 h-7 rounded-lg bg-slate-100 dark:bg-slate-700 flex items-center justify-center shrink-0 text-xs font-bold text-slate-500 dark:text-slate-300 uppercase">
+                      {(isEditing ? editName : s.name).charAt(0) || '?'}
+                    </span>
+
+                    {isEditing ? (
+                      <form onSubmit={handleSaveEdit} className="flex-1 flex items-center gap-1.5 min-w-0">
+                        <input
+                          ref={editInputRef}
+                          value={editName}
+                          onChange={(e) => setEditName(e.target.value)}
+                          maxLength={80}
+                          disabled={isSaving}
+                          className="flex-1 min-w-0 h-9 px-2.5 text-sm rounded-lg bg-slate-50 dark:bg-slate-700/50 border border-indigo-300 dark:border-indigo-600 text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500/50"
+                        />
+                        <button
+                          type="submit"
+                          disabled={!editName.trim() || isSaving}
+                          className="w-8 h-8 flex items-center justify-center rounded-lg text-emerald-600 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-900/30 transition-colors disabled:opacity-50"
+                          title="Save"
+                        >
+                          {isSaving ? <Loader2 size={14} className="animate-spin" /> : <Check size={14} />}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={cancelEdit}
+                          disabled={isSaving}
+                          className="w-8 h-8 flex items-center justify-center rounded-lg text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors disabled:opacity-50"
+                          title="Cancel"
+                        >
+                          <X size={14} />
+                        </button>
+                      </form>
                     ) : (
-                      <Trash2 size={14} />
+                      <>
+                        <span className="flex-1 text-sm text-slate-700 dark:text-slate-200 truncate">
+                          {s.name}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => startEdit(s)}
+                          disabled={Boolean(savingId) || Boolean(deletingId)}
+                          className="w-8 h-8 flex items-center justify-center rounded-lg text-slate-400 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors disabled:opacity-50"
+                          title="Rename"
+                        >
+                          <Pencil size={14} />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleDelete(s.id)}
+                          disabled={deletingId === s.id || Boolean(savingId)}
+                          className="w-8 h-8 flex items-center justify-center rounded-lg text-slate-400 hover:bg-rose-50 dark:hover:bg-rose-900/30 hover:text-rose-600 dark:hover:text-rose-400 transition-colors disabled:opacity-50"
+                          title="Remove"
+                        >
+                          {deletingId === s.id ? (
+                            <Loader2 size={14} className="animate-spin" />
+                          ) : (
+                            <Trash2 size={14} />
+                          )}
+                        </button>
+                      </>
                     )}
-                  </button>
-                </li>
-              ))}
+                  </li>
+                )
+              })}
             </ul>
           )}
         </div>
 
         <div className="shrink-0 px-5 sm:px-6 py-3 border-t border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/60">
           <p className="text-[11px] text-slate-400">
-            Removing a name here won’t change assignments that already use it.
+            Renaming updates matching assignments too. Removing a name won’t delete those assignments.
           </p>
         </div>
       </div>

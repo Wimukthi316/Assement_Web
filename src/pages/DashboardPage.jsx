@@ -23,6 +23,7 @@ import {
   deleteSeason,
   fetchSubcontractors,
   createSubcontractor,
+  updateSubcontractor,
   deleteSubcontractor,
 } from '../services/api.js'
 import Header from '../components/Header.jsx'
@@ -115,6 +116,21 @@ export default function DashboardPage() {
     })
     return created
   }, [])
+
+  const handleUpdateSubcontractor = useCallback(async (id, name) => {
+    const updated = await updateSubcontractor(id, name)
+    const { assignmentsUpdated = 0, ...record } = updated
+    setSubcontractors((prev) =>
+      [...prev.map((s) => (s.id === id ? { ...s, ...record } : s))].sort((a, b) =>
+        a.name.localeCompare(b.name)
+      )
+    )
+    // Rename syncs matching assignment names on the server — refresh the list.
+    if (assignmentsUpdated > 0) {
+      await loadAssignments()
+    }
+    return updated
+  }, [loadAssignments])
 
   const handleDeleteSubcontractor = useCallback(async (id) => {
     await deleteSubcontractor(id)
@@ -523,6 +539,7 @@ export default function DashboardPage() {
           subcontractors={subcontractors}
           selfName={selfName}
           onCreate={handleCreateSubcontractor}
+          onUpdate={handleUpdateSubcontractor}
           onDelete={handleDeleteSubcontractor}
           onClose={() => setShowSubManager(false)}
         />

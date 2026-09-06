@@ -112,6 +112,13 @@ export async function createSubcontractor(name) {
   })
 }
 
+export async function updateSubcontractor(id, name) {
+  return request('/subcontractors', {
+    method: 'PUT',
+    body: JSON.stringify({ id, name }),
+  })
+}
+
 export async function deleteSubcontractor(id) {
   return request(`/subcontractors?id=${encodeURIComponent(id)}`, {
     method: 'DELETE',
