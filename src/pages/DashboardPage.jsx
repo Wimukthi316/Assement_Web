@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react'
-import { Plus, RotateCcw, PackageCheck, Users } from 'lucide-react'
+import { Plus, RotateCcw, PackageCheck, Users, Undo2 } from 'lucide-react'
 import {
   calcSummary,
   applyFilters,
@@ -19,6 +19,7 @@ import {
   importAssignments,
   migrateLegacyData,
   resetSeason,
+  restoreSeason,
   archiveSettled,
   deleteSeason,
   fetchSubcontractors,
@@ -69,6 +70,7 @@ export default function DashboardPage() {
   const [showResetConfirm, setShowResetConfirm] = useState(false)
   const [showSettledConfirm, setShowSettledConfirm] = useState(false)
   const [seasonToDelete, setSeasonToDelete] = useState(null)
+  const [seasonToRestore, setSeasonToRestore] = useState(null)
   const [selectedSeasonId, setSelectedSeasonId] = useState(null)
 
   const migrationAttempted = useRef(false)
@@ -278,6 +280,28 @@ export default function DashboardPage() {
     }
   }
 
+  async function handleRestoreSeasonConfirm() {
+    if (!seasonToRestore) return
+    setSaving(true)
+    setError(null)
+    setSuccessMessage(null)
+    try {
+      const result = await restoreSeason(seasonToRestore.seasonId)
+      await loadAssignments()
+      setSeasonToRestore(null)
+      setActiveTab('active')
+      setSelectedSeasonId(null)
+      setSuccessMessage(
+        result.message ||
+          `Restored ${result.restoredCount} assignment(s) to the current season.`
+      )
+    } catch (err) {
+      setError(err.message || 'Failed to restore season')
+    } finally {
+      setSaving(false)
+    }
+  }
+
   async function handleDeleteSeasonConfirm() {
     if (!seasonToDelete) return
     setSaving(true)
@@ -445,6 +469,7 @@ export default function DashboardPage() {
                 seasons={seasonGroups}
                 selectedSeasonId={selectedSeasonId || 'all'}
                 onSelect={setSelectedSeasonId}
+                onRestoreSeason={setSeasonToRestore}
                 onDeleteSeason={setSeasonToDelete}
                 deleting={saving}
               />
@@ -470,8 +495,8 @@ export default function DashboardPage() {
                 <p className="text-sm text-slate-500 dark:text-slate-400">
                   {isHistoryTab
                     ? selectedSeason
-                      ? `Viewing one closed season · delete a single row with the trash icon, or delete the whole season from the card above`
-                      : 'Select a season card above · trash icon on a card deletes that whole season'
+                      ? `Viewing ${selectedSeason.label} · restore it to current, or delete a row / the whole season`
+                      : 'Select a season card · undo icon restores it to current · trash deletes that season'
                     : `Manage your current season · ${settlement.settled.length} settled, ${settlement.blocked.length} still open`}
                 </p>
               </div>
@@ -488,6 +513,18 @@ export default function DashboardPage() {
                     {subcontractors.length}
                   </span>
                 </button>
+                {isHistoryTab && selectedSeason && (
+                  <button
+                    onClick={() => setSeasonToRestore(selectedSeason)}
+                    disabled={saving}
+                    className="flex items-center gap-2 px-4 py-2.5 text-sm font-semibold rounded-xl bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed text-white transition-colors shadow-lg shadow-indigo-500/25"
+                    title="Bring this closed season back to the current dashboard. Nothing is deleted."
+                  >
+                    <Undo2 size={16} />
+                    <span className="hidden sm:inline">Restore to current</span>
+                    <span className="sm:hidden">Restore</span>
+                  </button>
+                )}
                 {!isHistoryTab && (
                   <>
                     <button
@@ -622,10 +659,36 @@ export default function DashboardPage() {
         />
       )}
 
+      {seasonToRestore && (
+        <ConfirmDialog
+          title={`Restore ${seasonToRestore.label}?`}
+          message={
+            <>
+              <span className="block">
+                All {seasonToRestore.count} assignment(s) in {seasonToRestore.label}{' '}
+                come back to the current season exactly as they are now — Pending,
+                Completed, Paid, Unpaid, prices, and notes. Nothing is deleted or
+                recalculated.
+              </span>
+              <span className="block mt-2">
+                {currentAssignments.length > 0
+                  ? `You already have ${currentAssignments.length} assignment(s) in the current season. Those stay. The restored ones join them.`
+                  : 'The current season is empty, so the dashboard will look like this season was never closed.'}
+              </span>
+            </>
+          }
+          confirmLabel="Restore to current"
+          confirmVariant="primary"
+          onConfirm={handleRestoreSeasonConfirm}
+          onCancel={() => !saving && setSeasonToRestore(null)}
+          loading={saving}
+        />
+      )}
+
       {showResetConfirm && (
         <ConfirmDialog
           title="Close Season & Reset Totals"
-          message={`This will move all ${currentAssignments.length} current assignment(s) into History and reset profit / pending totals to zero for a new season. History stays available in the History tab. Continue?`}
+          message={`This will move all ${currentAssignments.length} current assignment(s) into History — including pending and unpaid ones — and reset current totals to zero. Nothing is deleted. You can restore that season from the History tab later. Continue?`}
           confirmLabel="Close Season"
           confirmVariant="primary"
           onConfirm={handleResetSeason}

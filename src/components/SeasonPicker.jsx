@@ -1,7 +1,14 @@
-import { CalendarRange, Layers, Trash2 } from 'lucide-react'
+import { CalendarRange, Layers, Trash2, Undo2 } from 'lucide-react'
 import { formatCurrency, formatSeasonClosedDate } from '../utils/helpers.js'
 
-export default function SeasonPicker({ seasons, selectedSeasonId, onSelect, onDeleteSeason, deleting = false }) {
+export default function SeasonPicker({
+  seasons,
+  selectedSeasonId,
+  onSelect,
+  onRestoreSeason,
+  onDeleteSeason,
+  deleting = false,
+}) {
   if (!seasons.length) {
     return (
       <div className="rounded-2xl border border-dashed border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 px-4 py-8 text-center">
@@ -76,6 +83,18 @@ export default function SeasonPicker({ seasons, selectedSeasonId, onSelect, onDe
                   </span>
                   <button
                     type="button"
+                    title={`Restore ${season.label} to the current season`}
+                    disabled={deleting}
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      onRestoreSeason?.(season)
+                    }}
+                    className="w-8 h-8 flex items-center justify-center rounded-lg text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 dark:hover:text-indigo-400 disabled:opacity-50 transition-colors"
+                  >
+                    <Undo2 size={14} />
+                  </button>
+                  <button
+                    type="button"
                     title={`Delete ${season.label} permanently`}
                     disabled={deleting}
                     onClick={(e) => {
@@ -102,6 +121,18 @@ export default function SeasonPicker({ seasons, selectedSeasonId, onSelect, onDe
                   </p>
                 </div>
               </div>
+              <button
+                type="button"
+                disabled={deleting}
+                onClick={(e) => {
+                  e.stopPropagation()
+                  onRestoreSeason?.(season)
+                }}
+                className="mt-3 w-full h-9 flex items-center justify-center gap-1.5 rounded-xl text-xs font-semibold bg-indigo-50 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300 hover:bg-indigo-100 dark:hover:bg-indigo-900/50 disabled:opacity-50 transition-colors"
+              >
+                <Undo2 size={13} />
+                Restore to current
+              </button>
             </div>
           )
         })}

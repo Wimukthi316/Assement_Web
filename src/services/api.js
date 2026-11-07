@@ -94,6 +94,13 @@ export async function archiveSettled() {
   return request('/archiveSettled', { method: 'POST' })
 }
 
+export async function restoreSeason(seasonId) {
+  return request('/restoreSeason', {
+    method: 'POST',
+    body: JSON.stringify({ seasonId }),
+  })
+}
+
 export async function deleteSeason(seasonId) {
   return request(`/deleteSeason?seasonId=${encodeURIComponent(seasonId)}`, {
     method: 'DELETE',
